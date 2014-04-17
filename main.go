@@ -34,10 +34,15 @@ type measurement struct {
 func measure(c check) measurement {
 	var m measurement
 
+	id, _ := uuid.NewV4()
+	m.Id = id.String()
+	m.CheckId = c.Id
+
 	easy := curl.EasyInit()
 	defer easy.Cleanup()
 
 	easy.Setopt(curl.OPT_URL, c.Url)
+
 	m.Url = c.Url
 
 	// dummy func for curl output
@@ -52,14 +57,33 @@ func measure(c check) measurement {
 
 	if err := easy.Perform(); err != nil {
 		if e, ok := err.(curl.CurlError); ok {
-			fmt.Printf("%v\n", int(e))
+			m.ExitStatus = (int(e))
+			return m
 		}
 		os.Exit(1)
 	}
 
-	id, _ := uuid.NewV4()
-	m.Id = id.String()
-	m.CheckId = c.Id
+	m.ExitStatus = 0
+	http_status, _ := easy.Getinfo(curl.INFO_RESPONSE_CODE)
+	m.HttpStatus = http_status.(int)
+
+	connect_time, _ := easy.Getinfo(curl.INFO_CONNECT_TIME)
+	m.ConnectTime = connect_time.(float64)
+
+	namelookup_time, _ := easy.Getinfo(curl.INFO_NAMELOOKUP_TIME)
+	m.NameLookupTime = namelookup_time.(float64)
+
+	starttransfer_time, _ := easy.Getinfo(curl.INFO_STARTTRANSFER_TIME)
+	m.StartTransferTime = starttransfer_time.(float64)
+
+	total_time, _ := easy.Getinfo(curl.INFO_TOTAL_TIME)
+	m.TotalTime = total_time.(float64)
+
+	local_ip, _ := easy.Getinfo(curl.INFO_LOCAL_IP)
+	m.LocalIp = local_ip.(string)
+
+	primary_ip, _ := easy.Getinfo(curl.INFO_PRIMARY_IP)
+	m.PrimaryIp = primary_ip.(string)
 
 	return m
 }
@@ -110,5 +134,4 @@ func main() {
 		fmt.Println("ping...")
 		time.Sleep(1000 * time.Millisecond)
 	}
-
 }
