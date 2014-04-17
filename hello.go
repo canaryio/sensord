@@ -32,12 +32,12 @@ type measurement struct {
 
 func curly(url string) []byte {
 	cmd := exec.Command("curly", url)
-	cmdOut, err := cmd.Output()
+	out, err := cmd.Output()
 	if err != nil {
 		panic(err)
 	}
 
-	return cmdOut
+	return out
 }
 
 func measure(c check) measurement {
