@@ -157,6 +157,8 @@ func get_checks() []check {
 }
 
 func main() {
+	check_list := get_checks()
+
 	checks := make(chan check)
 	measurements := make(chan measurement)
 
@@ -164,7 +166,7 @@ func main() {
 	go recorder(measurements)
 
 	for {
-		for _, c := range get_checks() {
+		for _, c := range check_list {
 			checks <- c
 		}
 
