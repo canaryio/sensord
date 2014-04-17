@@ -56,11 +56,18 @@ func measure(c check) measurement {
 	return m
 }
 
+func scheduler(checks chan check) {
+}
+
 func measurer(checks chan check, measurements chan measurement) {
 	c := <-checks
 	m := measure(c)
 
 	measurements <- m
+}
+
+func recorder(measurements chan measurement) {
+
 }
 
 func main() {
@@ -73,7 +80,10 @@ func main() {
 
 	checks := make(chan check)
 	measurements := make(chan measurement)
+
+	go scheduler(checks)
 	go measurer(checks, measurements)
+	go recorder(measurements)
 
 	var c check
 	c.Id = "1"
