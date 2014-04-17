@@ -23,12 +23,19 @@ type curly_response struct {
 
 func main() {
 	cmd := exec.Command("curly", "http://github.com")
-	cmdOut, _ := cmd.Output()
+	cmdOut, err := cmd.Output()
+	if err != nil {
+		panic(err)
+	}
 
 	var foo curly_response
 	if err := json.Unmarshal(cmdOut, &foo); err != nil {
 		log.Fatalf("error %v", err)
 	}
-	fmt.Printf("%s\n", cmdOut)
-	fmt.Printf("%v\n", foo)
+
+	s, err := json.Marshal(foo)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%s\n", s)
 }
