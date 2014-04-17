@@ -1,6 +1,8 @@
 sensord
 =========
 
+A simple HTTP monitoring tool. Very much a WIP.
+
 ## Running locally
 
 ```
