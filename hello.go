@@ -57,7 +57,7 @@ func measure(c check) measurement {
 
 func main() {
 	var c check
-	c.Id = "test"
+	c.Id = "1"
 	c.Url = "http://github.com"
 
 	foo := measure(c)
