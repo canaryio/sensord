@@ -1,4 +1,4 @@
-sensor.go
+sensor
 =========
 
 ## Running locally
