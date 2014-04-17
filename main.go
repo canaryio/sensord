@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"time"
 
@@ -35,6 +37,16 @@ func location() string {
 	l := os.Getenv("LOCATION")
 	if len(l) == 0 {
 		fmt.Fprintf(os.Stderr, "LOCATION not defined in ENV\n")
+		os.Exit(1)
+	}
+
+	return l
+}
+
+func checks_url() string {
+	l := os.Getenv("CHECKS_URL")
+	if len(l) == 0 {
+		fmt.Fprintf(os.Stderr, "CHECKS_URL not defined in ENV\n")
 		os.Exit(1)
 	}
 
@@ -121,7 +133,32 @@ func recorder(measurements chan measurement) {
 	}
 }
 
+func get_checks() []check {
+	url := checks_url()
+
+	res, err := http.Get(url)
+	if err != nil {
+		panic(err)
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		panic(err)
+	}
+
+	var checks []check
+	err = json.Unmarshal(body, &checks)
+	if err != nil {
+		panic(err)
+	}
+
+	return checks
+}
+
 func main() {
+	check_list := get_checks()
+
 	checks := make(chan check)
 	measurements := make(chan measurement)
 
@@ -129,11 +166,9 @@ func main() {
 	go recorder(measurements)
 
 	for {
-		var c check
-		c.Id = "1"
-		c.Url = "http://github.com"
-
-		checks <- c
+		for _, c := range check_list {
+			checks <- c
+		}
 
 		time.Sleep(1000 * time.Millisecond)
 	}
