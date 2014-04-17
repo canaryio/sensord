@@ -99,18 +99,6 @@ func measure(c check) measurement {
 	return m
 }
 
-func scheduler(checks chan check) {
-	for {
-		var c check
-		c.Id = "1"
-		c.Url = "http://github.com"
-
-		checks <- c
-
-		time.Sleep(1000 * time.Millisecond)
-	}
-}
-
 func measurer(checks chan check, measurements chan measurement) {
 	for {
 		c := <-checks
@@ -137,12 +125,16 @@ func main() {
 	checks := make(chan check)
 	measurements := make(chan measurement)
 
-	go scheduler(checks)
 	go measurer(checks, measurements)
 	go recorder(measurements)
 
 	for {
-		fmt.Println("ping...")
+		var c check
+		c.Id = "1"
+		c.Url = "http://github.com"
+
+		checks <- c
+
 		time.Sleep(1000 * time.Millisecond)
 	}
 }
