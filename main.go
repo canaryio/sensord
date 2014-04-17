@@ -3,11 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"os/exec"
+	"os"
 	"time"
 
+	"github.com/andelf/go-curl"
 	"github.com/nu7hatch/gouuid"
-	"github.com/vmihailenco/redis/v2"
 )
 
 type check struct {
@@ -15,58 +15,88 @@ type check struct {
 	Url string `json:"url"`
 }
 
-// {"url": "http://github.com", "connect_time": 0.031178999999999998, "exit_status": 0, "starttransfer_time": 0.031178999999999998, "t": 1397688864, "local_ip": "107.170.123.131", "primary_ip": "192.30.252.128", "total_time": 0.037648000000000001, "http_status": 301, "namelookup_time": 0.024646000000000001, "local_port": 53858}
 type measurement struct {
 	Id                string  `json:"id"`
 	CheckId           string  `json:"check_id"`
 	Location          string  `json:"location"`
 	Url               string  `json:"url"`
-	ConnectTime       float64 `json:"connect_time"`
-	ExitStatus        int     `json:"exit_status"`
-	StartTransferTime float64 `json:"starttransfer_time"`
 	T                 int     `json:"t"`
-	LocalIp           string  `json:"local_ip"`
-	PrimaryIp         string  `json:"primary_ip"`
-	TotalTime         float64 `json:"total_time"`
-	HttpStatus        int     `json:"http_status"`
-	NameLookupTime    float64 `json:"namelookup_time"`
+	ExitStatus        int     `json:"exit_status"`
+	ConnectTime       float64 `json:"connect_time,omitempty"`
+	StartTransferTime float64 `json:"starttransfer_time,omitempty"`
+	LocalIp           string  `json:"local_ip,omitempty"`
+	PrimaryIp         string  `json:"primary_ip,omitempty"`
+	TotalTime         float64 `json:"total_time,omitempty"`
+	HttpStatus        int     `json:"http_status,omitempty"`
+	NameLookupTime    float64 `json:"namelookup_time,omitempty"`
 }
 
-func curly(url string) []byte {
-	cmd := exec.Command("curly", url)
-	out, err := cmd.Output()
-	if err != nil {
-		panic(err)
+func location() string {
+	l := os.Getenv("LOCATION")
+	if len(l) == 0 {
+		fmt.Fprintf(os.Stderr, "LOCATION not defined in ENV\n")
+		os.Exit(1)
 	}
 
-	return out
+	return l
 }
 
 func measure(c check) measurement {
-	s := curly(c.Url)
-
 	var m measurement
-	if err := json.Unmarshal(s, &m); err != nil {
-		panic(err)
-	}
 
 	id, _ := uuid.NewV4()
 	m.Id = id.String()
 	m.CheckId = c.Id
+	m.Location = location()
+
+	easy := curl.EasyInit()
+	defer easy.Cleanup()
+
+	easy.Setopt(curl.OPT_URL, c.Url)
+
+	m.Url = c.Url
+
+	// dummy func for curl output
+	noOut := func(buf []byte, userdata interface{}) bool {
+		return true
+	}
+
+	easy.Setopt(curl.OPT_WRITEFUNCTION, noOut)
+
+	now := time.Now()
+	m.T = int(now.Unix())
+
+	if err := easy.Perform(); err != nil {
+		if e, ok := err.(curl.CurlError); ok {
+			m.ExitStatus = (int(e))
+			return m
+		}
+		os.Exit(1)
+	}
+
+	m.ExitStatus = 0
+	http_status, _ := easy.Getinfo(curl.INFO_RESPONSE_CODE)
+	m.HttpStatus = http_status.(int)
+
+	connect_time, _ := easy.Getinfo(curl.INFO_CONNECT_TIME)
+	m.ConnectTime = connect_time.(float64)
+
+	namelookup_time, _ := easy.Getinfo(curl.INFO_NAMELOOKUP_TIME)
+	m.NameLookupTime = namelookup_time.(float64)
+
+	starttransfer_time, _ := easy.Getinfo(curl.INFO_STARTTRANSFER_TIME)
+	m.StartTransferTime = starttransfer_time.(float64)
+
+	total_time, _ := easy.Getinfo(curl.INFO_TOTAL_TIME)
+	m.TotalTime = total_time.(float64)
+
+	local_ip, _ := easy.Getinfo(curl.INFO_LOCAL_IP)
+	m.LocalIp = local_ip.(string)
+
+	primary_ip, _ := easy.Getinfo(curl.INFO_PRIMARY_IP)
+	m.PrimaryIp = primary_ip.(string)
 
 	return m
-}
-
-func scheduler(checks chan check) {
-	for {
-		var c check
-		c.Id = "1"
-		c.Url = "http://github.com"
-
-		checks <- c
-
-		time.Sleep(1000 * time.Millisecond)
-	}
 }
 
 func measurer(checks chan check, measurements chan measurement) {
@@ -79,13 +109,6 @@ func measurer(checks chan check, measurements chan measurement) {
 }
 
 func recorder(measurements chan measurement) {
-	client := redis.NewTCPClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-	defer client.Close()
-
 	for {
 		m := <-measurements
 
@@ -94,7 +117,6 @@ func recorder(measurements chan measurement) {
 			panic(err)
 		}
 
-		client.LPush("measurements", string(s))
 		fmt.Println(string(s))
 	}
 }
@@ -103,13 +125,16 @@ func main() {
 	checks := make(chan check)
 	measurements := make(chan measurement)
 
-	go scheduler(checks)
 	go measurer(checks, measurements)
 	go recorder(measurements)
 
 	for {
-		fmt.Println("ping...")
+		var c check
+		c.Id = "1"
+		c.Url = "http://github.com"
+
+		checks <- c
+
 		time.Sleep(1000 * time.Millisecond)
 	}
-
 }
