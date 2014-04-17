@@ -2,10 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os/exec"
 
 	"github.com/nu7hatch/gouuid"
+	"github.com/vmihailenco/redis/v2"
 )
 
 type check struct {
@@ -56,6 +56,13 @@ func measure(c check) measurement {
 }
 
 func main() {
+	client := redis.NewTCPClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+	defer client.Close()
+
 	var c check
 	c.Id = "1"
 	c.Url = "http://github.com"
@@ -66,5 +73,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%s\n", s)
+
+	client.LPush("measurements", string(s))
 }
