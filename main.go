@@ -15,7 +15,6 @@ type check struct {
 	Url string `json:"url"`
 }
 
-// {"url": "http://github.com", "connect_time": 0.031178999999999998, "exit_status": 0, "starttransfer_time": 0.031178999999999998, "t": 1397688864, "local_ip": "107.170.123.131", "primary_ip": "192.30.252.128", "total_time": 0.037648000000000001, "http_status": 301, "namelookup_time": 0.024646000000000001, "local_port": 53858}
 type measurement struct {
 	Id                string  `json:"id"`
 	CheckId           string  `json:"check_id"`
