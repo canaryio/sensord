@@ -3,9 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"os/exec"
+	"os"
 	"time"
 
+	"github.com/andelf/go-curl"
 	"github.com/nu7hatch/gouuid"
 )
 
@@ -31,22 +32,29 @@ type measurement struct {
 	NameLookupTime    float64 `json:"namelookup_time"`
 }
 
-func curly(url string) []byte {
-	cmd := exec.Command("curly", url)
-	out, err := cmd.Output()
-	if err != nil {
-		panic(err)
+func measure(c check) measurement {
+	var m measurement
+
+	easy := curl.EasyInit()
+	defer easy.Cleanup()
+
+	easy.Setopt(curl.OPT_URL, c.Url)
+
+	// dummy func for curl output
+	noOut := func(buf []byte, userdata interface{}) bool {
+		return true
 	}
 
-	return out
-}
+	easy.Setopt(curl.OPT_WRITEFUNCTION, noOut)
 
-func measure(c check) measurement {
-	s := curly(c.Url)
+	now := time.Now()
+	m.T = int(now.Unix())
 
-	var m measurement
-	if err := json.Unmarshal(s, &m); err != nil {
-		panic(err)
+	if err := easy.Perform(); err != nil {
+		if e, ok := err.(curl.CurlError); ok {
+			fmt.Printf("%v\n", int(e))
+		}
+		os.Exit(1)
 	}
 
 	id, _ := uuid.NewV4()
