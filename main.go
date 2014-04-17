@@ -31,12 +31,23 @@ type measurement struct {
 	NameLookupTime    float64 `json:"namelookup_time"`
 }
 
+func location() string {
+	l := os.Getenv("LOCATION")
+	if len(l) == 0 {
+		fmt.Fprintf(os.Stderr, "LOCATION not defined in ENV\n")
+		os.Exit(1)
+	}
+
+	return l
+}
+
 func measure(c check) measurement {
 	var m measurement
 
 	id, _ := uuid.NewV4()
 	m.Id = id.String()
 	m.CheckId = c.Id
+	m.Location = location()
 
 	easy := curl.EasyInit()
 	defer easy.Cleanup()
