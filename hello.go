@@ -56,7 +56,6 @@ func measure(c check) measurement {
 }
 
 func main() {
-
 	var c check
 	c.Id = "test"
 	c.Url = "http://github.com"
