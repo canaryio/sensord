@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"time"
 
@@ -121,6 +123,29 @@ func recorder(measurements chan measurement) {
 	}
 }
 
+func get_checks() []check {
+	url := "https://gist.githubusercontent.com/gorsuch/0069fbe098ebcf510e1d/raw/235556ff162fc5578127cef5f99c318c84cb73ba/gistfile1.txt"
+
+	res, err := http.Get(url)
+	if err != nil {
+		panic(err)
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		panic(err)
+	}
+
+	var checks []check
+	err = json.Unmarshal(body, &checks)
+	if err != nil {
+		panic(err)
+	}
+
+	return checks
+}
+
 func main() {
 	checks := make(chan check)
 	measurements := make(chan measurement)
@@ -129,11 +154,9 @@ func main() {
 	go recorder(measurements)
 
 	for {
-		var c check
-		c.Id = "1"
-		c.Url = "http://github.com"
-
-		checks <- c
+		for _, c := range get_checks() {
+			checks <- c
+		}
 
 		time.Sleep(1000 * time.Millisecond)
 	}
