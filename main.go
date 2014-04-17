@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"time"
 
 	"github.com/nu7hatch/gouuid"
 	"github.com/vmihailenco/redis/v2"
@@ -57,20 +58,27 @@ func measure(c check) measurement {
 }
 
 func scheduler(checks chan check) {
+	for {
+		var c check
+		c.Id = "1"
+		c.Url = "http://github.com"
+
+		checks <- c
+
+		time.Sleep(1000 * time.Millisecond)
+	}
 }
 
 func measurer(checks chan check, measurements chan measurement) {
-	c := <-checks
-	m := measure(c)
+	for {
+		c := <-checks
+		m := measure(c)
 
-	measurements <- m
+		measurements <- m
+	}
 }
 
 func recorder(measurements chan measurement) {
-
-}
-
-func main() {
 	client := redis.NewTCPClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "", // no password set
@@ -78,6 +86,20 @@ func main() {
 	})
 	defer client.Close()
 
+	for {
+		m := <-measurements
+
+		s, err := json.Marshal(m)
+		if err != nil {
+			panic(err)
+		}
+
+		client.LPush("measurements", string(s))
+		fmt.Println(string(s))
+	}
+}
+
+func main() {
 	checks := make(chan check)
 	measurements := make(chan measurement)
 
@@ -85,19 +107,9 @@ func main() {
 	go measurer(checks, measurements)
 	go recorder(measurements)
 
-	var c check
-	c.Id = "1"
-	c.Url = "http://github.com"
-
-	checks <- c
-
-	m := <-measurements
-
-	s, err := json.Marshal(m)
-	if err != nil {
-		panic(err)
+	for {
+		fmt.Println("ping...")
+		time.Sleep(1000 * time.Millisecond)
 	}
 
-	client.LPush("measurements", string(s))
-	fmt.Println(string(s))
 }
