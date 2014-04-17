@@ -20,15 +20,15 @@ type measurement struct {
 	CheckId           string  `json:"check_id"`
 	Location          string  `json:"location"`
 	Url               string  `json:"url"`
-	ConnectTime       float64 `json:"connect_time"`
-	ExitStatus        int     `json:"exit_status"`
-	StartTransferTime float64 `json:"starttransfer_time"`
 	T                 int     `json:"t"`
-	LocalIp           string  `json:"local_ip"`
-	PrimaryIp         string  `json:"primary_ip"`
-	TotalTime         float64 `json:"total_time"`
-	HttpStatus        int     `json:"http_status"`
-	NameLookupTime    float64 `json:"namelookup_time"`
+	ExitStatus        int     `json:"exit_status"`
+	ConnectTime       float64 `json:"connect_time,omitempty"`
+	StartTransferTime float64 `json:"starttransfer_time,omitempty"`
+	LocalIp           string  `json:"local_ip,omitempty"`
+	PrimaryIp         string  `json:"primary_ip,omitempty"`
+	TotalTime         float64 `json:"total_time,omitempty"`
+	HttpStatus        int     `json:"http_status,omitempty"`
+	NameLookupTime    float64 `json:"namelookup_time,omitempty"`
 }
 
 func location() string {
