@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/nu7hatch/gouuid"
-	"github.com/vmihailenco/redis/v2"
 )
 
 type check struct {
@@ -79,13 +78,6 @@ func measurer(checks chan check, measurements chan measurement) {
 }
 
 func recorder(measurements chan measurement) {
-	client := redis.NewTCPClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-	defer client.Close()
-
 	for {
 		m := <-measurements
 
@@ -94,7 +86,6 @@ func recorder(measurements chan measurement) {
 			panic(err)
 		}
 
-		client.LPush("measurements", string(s))
 		fmt.Println(string(s))
 	}
 }
