@@ -10,5 +10,7 @@ A simple HTTP monitoring tool. Very much a WIP.
 ```
 $ go get github.com/gorsuch/sensord
 ...
-$ LOCATION=my_house go run main.go
+$ export LOCATION=my_house
+$ export CHECKS_URL=https://s3.amazonaws.com/canary-public-data/data.json
+$ go run main.go
 ```

@@ -43,6 +43,16 @@ func location() string {
 	return l
 }
 
+func checks_url() string {
+	l := os.Getenv("CHECKS_URL")
+	if len(l) == 0 {
+		fmt.Fprintf(os.Stderr, "CHECKS_URL not defined in ENV\n")
+		os.Exit(1)
+	}
+
+	return l
+}
+
 func measure(c check) measurement {
 	var m measurement
 
@@ -124,7 +134,7 @@ func recorder(measurements chan measurement) {
 }
 
 func get_checks() []check {
-	url := "https://gist.githubusercontent.com/gorsuch/0069fbe098ebcf510e1d/raw/235556ff162fc5578127cef5f99c318c84cb73ba/gistfile1.txt"
+	url := checks_url()
 
 	res, err := http.Get(url)
 	if err != nil {
