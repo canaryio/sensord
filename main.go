@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os/exec"
 
 	"github.com/nu7hatch/gouuid"
@@ -55,6 +56,13 @@ func measure(c check) measurement {
 	return m
 }
 
+func measurer(checks chan check, measurements chan measurement) {
+	c := <-checks
+	m := measure(c)
+
+	measurements <- m
+}
+
 func main() {
 	client := redis.NewTCPClient(&redis.Options{
 		Addr:     "localhost:6379",
@@ -63,16 +71,23 @@ func main() {
 	})
 	defer client.Close()
 
+	checks := make(chan check)
+	measurements := make(chan measurement)
+	go measurer(checks, measurements)
+
 	var c check
 	c.Id = "1"
 	c.Url = "http://github.com"
 
-	foo := measure(c)
+	checks <- c
 
-	s, err := json.Marshal(foo)
+	m := <-measurements
+
+	s, err := json.Marshal(m)
 	if err != nil {
 		panic(err)
 	}
 
 	client.LPush("measurements", string(s))
+	fmt.Println(string(s))
 }
