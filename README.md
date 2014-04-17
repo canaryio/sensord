@@ -1,4 +1,4 @@
-sensor
+sensord
 =========
 
 ## Running locally
