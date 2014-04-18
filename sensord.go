@@ -122,10 +122,12 @@ func measurer(checks chan check, measurements chan measurement) {
 }
 
 func recorder(measurements chan measurement) {
+	var payload []measurement
 	for {
 		m := <-measurements
+		payload = payload.append(payload, m)
 
-		s, err := json.Marshal(m)
+		s, err := json.Marshal(&payload)
 		if err != nil {
 			panic(err)
 		}
