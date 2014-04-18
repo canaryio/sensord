@@ -138,7 +138,7 @@ func recorder(measurements chan measurement) {
 
 		req.Header.Add("Content-Type", "application/json")
 		resp, err := http.DefaultClient.Do(req)
-		defer resp.Body.Close()
+		resp.Body.Close()
 		if err != nil {
 			panic(err)
 		}
