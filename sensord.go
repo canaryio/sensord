@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -121,18 +122,30 @@ func measurer(checks chan check, measurements chan measurement) {
 }
 
 func recorder(measurements chan measurement) {
+	var payload []measurement
 	for {
 		m := <-measurements
+		payload = append(payload, m)
 
-		var measurements []measurement
-		measurements = append(measurements, m)
-
-		s, err := json.Marshal(measurements)
+		s, err := json.Marshal(&payload)
 		if err != nil {
 			panic(err)
 		}
 
-		fmt.Println(string(s))
+		body := bytes.NewBuffer(s)
+		req, err := http.NewRequest("POST", "http://localhost:5000/measurements", body)
+		if err != nil {
+			panic(err)
+		}
+
+		req.Header.Add("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			panic(err)
+		}
+		resp.Body.Close()
+
+		fmt.Println(resp)
 	}
 }
 
