@@ -124,7 +124,10 @@ func recorder(measurements chan measurement) {
 	for {
 		m := <-measurements
 
-		s, err := json.Marshal(m)
+		var measurements []measurement
+		measurements = append(measurements, m)
+
+		s, err := json.Marshal(measurements)
 		if err != nil {
 			panic(err)
 		}
