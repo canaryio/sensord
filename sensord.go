@@ -125,7 +125,7 @@ func recorder(measurements chan measurement) {
 	var payload []measurement
 	for {
 		m := <-measurements
-		payload = payload.append(payload, m)
+		payload = append(payload, m)
 
 		s, err := json.Marshal(&payload)
 		if err != nil {
@@ -140,10 +140,10 @@ func recorder(measurements chan measurement) {
 
 		req.Header.Add("Content-Type", "application/json")
 		resp, err := http.DefaultClient.Do(req)
-		resp.Body.Close()
 		if err != nil {
 			panic(err)
 		}
+		resp.Body.Close()
 
 		fmt.Println(resp)
 	}
