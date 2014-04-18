@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -124,15 +125,25 @@ func recorder(measurements chan measurement) {
 	for {
 		m := <-measurements
 
-		var measurements []measurement
-		measurements = append(measurements, m)
-
-		s, err := json.Marshal(measurements)
+		s, err := json.Marshal(m)
 		if err != nil {
 			panic(err)
 		}
 
-		fmt.Println(string(s))
+		body := bytes.NewBuffer(s)
+		req, err := http.NewRequest("POST", "http://localhost:5000/measurements", body)
+		if err != nil {
+			panic(err)
+		}
+
+		req.Header.Add("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		defer resp.Body.Close()
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Println(resp)
 	}
 }
 
