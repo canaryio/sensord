@@ -29,4 +29,4 @@ mv ${PACKAGE} ${BUILD}
 
 s3cmd put ${BUILD} ${TARGET}
 
-echo ${TARGET}/${BUILD]
+echo ${TARGET}/${BUILD}
