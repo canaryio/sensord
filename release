@@ -27,4 +27,4 @@ godep go build
 
 mv ${PACKAGE} ${BUILD}
 
-s3cmd -q put ${BUILD} ${TARGET}
+s3cmd put ${BUILD} ${TARGET}  > /dev/null
