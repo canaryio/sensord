@@ -13,6 +13,12 @@ import (
 	"github.com/nu7hatch/gouuid"
 )
 
+type Config struct {
+	Location        string
+	ChecksUrl       string
+	MeasurementsUrl string
+}
+
 type check struct {
 	Id  string `json:"id"`
 	Url string `json:"url"`
@@ -34,33 +40,23 @@ type measurement struct {
 	NameLookupTime    float64 `json:"namelookup_time,omitempty"`
 }
 
-func location() string {
-	l := os.Getenv("LOCATION")
-	if len(l) == 0 {
-		fmt.Fprintf(os.Stderr, "LOCATION not defined in ENV\n")
-		os.Exit(1)
+func GetEnvWithDefault(env string, def string) string {
+	tmp := os.Getenv(env)
+
+	if tmp == "" {
+		return def
 	}
 
-	return l
+	return tmp
 }
 
-func checks_url() string {
-	l := os.Getenv("CHECKS_URL")
-	if len(l) == 0 {
-		fmt.Fprintf(os.Stderr, "CHECKS_URL not defined in ENV\n")
-		os.Exit(1)
-	}
-
-	return l
-}
-
-func measure(c check) measurement {
+func measure(config Config, c check) measurement {
 	var m measurement
 
 	id, _ := uuid.NewV4()
 	m.Id = id.String()
 	m.CheckId = c.Id
-	m.Location = location()
+	m.Location = config.Location
 
 	easy := curl.EasyInit()
 	defer easy.Cleanup()
@@ -112,16 +108,16 @@ func measure(c check) measurement {
 	return m
 }
 
-func measurer(checks chan check, measurements chan measurement) {
+func measurer(config Config, checks chan check, measurements chan measurement) {
 	for {
 		c := <-checks
-		m := measure(c)
+		m := measure(config, c)
 
 		measurements <- m
 	}
 }
 
-func recorder(measurements chan measurement) {
+func recorder(config Config, measurements chan measurement) {
 	var payload []measurement
 	for {
 		m := <-measurements
@@ -133,7 +129,7 @@ func recorder(measurements chan measurement) {
 		}
 
 		body := bytes.NewBuffer(s)
-		req, err := http.NewRequest("POST", "http://localhost:5000/measurements", body)
+		req, err := http.NewRequest("POST", config.MeasurementsUrl, body)
 		if err != nil {
 			panic(err)
 		}
@@ -149,8 +145,8 @@ func recorder(measurements chan measurement) {
 	}
 }
 
-func get_checks() []check {
-	url := checks_url()
+func get_checks(config Config) []check {
+	url := config.ChecksUrl
 
 	res, err := http.Get(url)
 	if err != nil {
@@ -173,13 +169,20 @@ func get_checks() []check {
 }
 
 func main() {
-	check_list := get_checks()
+	var config Config
+	config.Location = GetEnvWithDefault("LOCATION", "undefined")
+	config.ChecksUrl = GetEnvWithDefault("CHECKS_URL", "https://s3.amazonaws.com/canary-public-data/data.json")
+	config.MeasurementsUrl = GetEnvWithDefault("MEASUREMENTS_URL", "http://localhost:5000/measurements")
+
+	fmt.Printf("%s\n", config.MeasurementsUrl)
+
+	check_list := get_checks(config)
 
 	checks := make(chan check)
 	measurements := make(chan measurement)
 
-	go measurer(checks, measurements)
-	go recorder(measurements)
+	go measurer(config, checks, measurements)
+	go recorder(config, measurements)
 
 	for {
 		for _, c := range check_list {
