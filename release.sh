@@ -4,7 +4,7 @@ set -e
 set -x
 
 DIR=releases
-PACKAGE=sensord
+PACKAGE=${PWD##*/}
 SHA=$(git rev-parse HEAD)
 BUILD=${DIR}/${PACKAGE}.${SHA}
 TARGET=s3://canary-releases
