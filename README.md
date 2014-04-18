@@ -12,6 +12,6 @@ $ go get github.com/gorsuch/sensord
 ...
 $ export LOCATION=my_house
 $ export CHECKS_URL=https://s3.amazonaws.com/canary-public-data/data.json
-$ export MEASUREMENTS_URL=http://localhost:5000/mesurements
+$ export MEASUREMENTS_URL=http://localhost:5000/measurements
 $ go run sensord.go
 ```
