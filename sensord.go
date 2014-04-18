@@ -118,7 +118,7 @@ func measurer(config Config, checks chan check, measurements chan measurement) {
 }
 
 func recorder(config Config, measurements chan measurement) {
-	var payload []measurement
+	payload := make([]measurement, 0, 100)
 	for {
 		m := <-measurements
 		payload = append(payload, m)
@@ -140,6 +140,7 @@ func recorder(config Config, measurements chan measurement) {
 			panic(err)
 		}
 		resp.Body.Close()
+		payload = make([]measurement, 0, 100)
 
 		fmt.Println(resp)
 	}
