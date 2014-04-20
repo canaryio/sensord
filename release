@@ -27,4 +27,4 @@ mv ${PACKAGE} ${BUILD}
 
 s3cmd put ${BUILD} ${TARGET}
 
-echo sha: ${SHA}
+echo release sha: ${SHA}
