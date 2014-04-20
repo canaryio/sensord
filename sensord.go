@@ -71,6 +71,8 @@ func measure(config Config, c check) measurement {
 	}
 
 	easy.Setopt(curl.OPT_WRITEFUNCTION, noOut)
+	easy.Setopt(curl.OPT_CONNECTTIMEOUT, 10)
+	easy.Setopt(curl.OPT_TIMEOUT, 10)
 
 	now := time.Now()
 	m.T = int(now.Unix())
