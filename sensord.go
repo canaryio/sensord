@@ -107,7 +107,7 @@ func (c *Check) Measure(config Config) Measurement {
 	return m
 }
 
-func measurer(config Config, checks chan Check, measurements chan Measurement) {
+func MeasureLoop(config Config, checks chan Check, measurements chan Measurement) {
 	for {
 		c := <-checks
 		m := c.Measure(config)
@@ -116,7 +116,7 @@ func measurer(config Config, checks chan Check, measurements chan Measurement) {
 	}
 }
 
-func recorder(config Config, measurements chan Measurement) {
+func RecordLoop(config Config, measurements chan Measurement) {
 	payload := make([]Measurement, 0, 100)
 	for {
 		m := <-measurements
@@ -145,7 +145,7 @@ func recorder(config Config, measurements chan Measurement) {
 	}
 }
 
-func get_checks(config Config) []Check {
+func GetChecks(config Config) []Check {
 	url := config.ChecksUrl
 
 	res, err := http.Get(url)
@@ -176,13 +176,13 @@ func main() {
 
 	fmt.Printf("%s\n", config.MeasurementsUrl)
 
-	check_list := get_checks(config)
+	check_list := GetChecks(config)
 
 	checks := make(chan Check)
 	measurements := make(chan Measurement)
 
-	go measurer(config, checks, measurements)
-	go recorder(config, measurements)
+	go MeasureLoop(config, checks, measurements)
+	go RecordLoop(config, measurements)
 
 	for {
 		for _, c := range check_list {
