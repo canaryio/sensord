@@ -19,17 +19,15 @@ type Config struct {
 	MeasurementsUrl string
 }
 
-type check struct {
+type Check struct {
 	Id  string `json:"id"`
 	Url string `json:"url"`
 }
 
-type measurement struct {
-	Check             check   `json:"check"`
+type Measurement struct {
+	Check             Check   `json:"check"`
 	Id                string  `json:"id"`
-	CheckId           string  `json:"check_id"`
 	Location          string  `json:"location"`
-	Url               string  `json:"url"`
 	T                 int     `json:"t"`
 	ExitStatus        int     `json:"exit_status"`
 	ConnectTime       float64 `json:"connect_time,omitempty"`
@@ -51,20 +49,18 @@ func GetEnvWithDefault(env string, def string) string {
 	return tmp
 }
 
-func measure(config Config, c check) measurement {
-	var m measurement
+func (c *Check) Measure(config Config) Measurement {
+	var m Measurement
 
 	id, _ := uuid.NewV4()
 	m.Id = id.String()
-	m.CheckId = c.Id
+	m.Check = *c
 	m.Location = config.Location
 
 	easy := curl.EasyInit()
 	defer easy.Cleanup()
 
 	easy.Setopt(curl.OPT_URL, c.Url)
-
-	m.Url = c.Url
 
 	// dummy func for curl output
 	noOut := func(buf []byte, userdata interface{}) bool {
@@ -111,17 +107,17 @@ func measure(config Config, c check) measurement {
 	return m
 }
 
-func measurer(config Config, checks chan check, measurements chan measurement) {
+func MeasureLoop(config Config, checks chan Check, measurements chan Measurement) {
 	for {
 		c := <-checks
-		m := measure(config, c)
+		m := c.Measure(config)
 
 		measurements <- m
 	}
 }
 
-func recorder(config Config, measurements chan measurement) {
-	payload := make([]measurement, 0, 100)
+func RecordLoop(config Config, measurements chan Measurement) {
+	payload := make([]Measurement, 0, 100)
 	for {
 		m := <-measurements
 		payload = append(payload, m)
@@ -143,13 +139,13 @@ func recorder(config Config, measurements chan measurement) {
 			panic(err)
 		}
 		resp.Body.Close()
-		payload = make([]measurement, 0, 100)
+		payload = make([]Measurement, 0, 100)
 
 		fmt.Println(resp)
 	}
 }
 
-func get_checks(config Config) []check {
+func GetChecks(config Config) []Check {
 	url := config.ChecksUrl
 
 	res, err := http.Get(url)
@@ -163,7 +159,7 @@ func get_checks(config Config) []check {
 		panic(err)
 	}
 
-	var checks []check
+	var checks []Check
 	err = json.Unmarshal(body, &checks)
 	if err != nil {
 		panic(err)
@@ -180,13 +176,13 @@ func main() {
 
 	fmt.Printf("%s\n", config.MeasurementsUrl)
 
-	check_list := get_checks(config)
+	check_list := GetChecks(config)
 
-	checks := make(chan check)
-	measurements := make(chan measurement)
+	checks := make(chan Check)
+	measurements := make(chan Measurement)
 
-	go measurer(config, checks, measurements)
-	go recorder(config, measurements)
+	go MeasureLoop(config, checks, measurements)
+	go RecordLoop(config, measurements)
 
 	for {
 		for _, c := range check_list {
