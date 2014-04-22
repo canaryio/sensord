@@ -51,7 +51,7 @@ func GetEnvWithDefault(env string, def string) string {
 	return tmp
 }
 
-func measure(config Config, c check) measurement {
+func measure(config Config, c Check) measurement {
 	var m measurement
 
 	id, _ := uuid.NewV4()
@@ -111,7 +111,7 @@ func measure(config Config, c check) measurement {
 	return m
 }
 
-func measurer(config Config, checks chan check, measurements chan measurement) {
+func measurer(config Config, checks chan Check, measurements chan measurement) {
 	for {
 		c := <-checks
 		m := measure(config, c)
@@ -149,7 +149,7 @@ func recorder(config Config, measurements chan measurement) {
 	}
 }
 
-func get_checks(config Config) []check {
+func get_checks(config Config) []Check {
 	url := config.ChecksUrl
 
 	res, err := http.Get(url)
@@ -163,7 +163,7 @@ func get_checks(config Config) []check {
 		panic(err)
 	}
 
-	var checks []check
+	var checks []Check
 	err = json.Unmarshal(body, &checks)
 	if err != nil {
 		panic(err)
@@ -182,7 +182,7 @@ func main() {
 
 	check_list := get_checks(config)
 
-	checks := make(chan check)
+	checks := make(chan Check)
 	measurements := make(chan measurement)
 
 	go measurer(config, checks, measurements)
