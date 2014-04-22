@@ -24,12 +24,10 @@ type Check struct {
 	Url string `json:"url"`
 }
 
-type measurement struct {
+type Measurement struct {
 	Check             Check   `json:"check"`
 	Id                string  `json:"id"`
-	CheckId           string  `json:"check_id"`
 	Location          string  `json:"location"`
-	Url               string  `json:"url"`
 	T                 int     `json:"t"`
 	ExitStatus        int     `json:"exit_status"`
 	ConnectTime       float64 `json:"connect_time,omitempty"`
@@ -51,13 +49,12 @@ func GetEnvWithDefault(env string, def string) string {
 	return tmp
 }
 
-func measure(config Config, c Check) measurement {
-	var m measurement
+func measure(config Config, c Check) Measurement {
+	var m Measurement
 
 	id, _ := uuid.NewV4()
 	m.Id = id.String()
 	m.Check = c
-	m.CheckId = c.Id
 	m.Location = config.Location
 
 	easy := curl.EasyInit()
@@ -110,7 +107,7 @@ func measure(config Config, c Check) measurement {
 	return m
 }
 
-func measurer(config Config, checks chan Check, measurements chan measurement) {
+func measurer(config Config, checks chan Check, measurements chan Measurement) {
 	for {
 		c := <-checks
 		m := measure(config, c)
@@ -119,8 +116,8 @@ func measurer(config Config, checks chan Check, measurements chan measurement) {
 	}
 }
 
-func recorder(config Config, measurements chan measurement) {
-	payload := make([]measurement, 0, 100)
+func recorder(config Config, measurements chan Measurement) {
+	payload := make([]Measurement, 0, 100)
 	for {
 		m := <-measurements
 		payload = append(payload, m)
@@ -142,7 +139,7 @@ func recorder(config Config, measurements chan measurement) {
 			panic(err)
 		}
 		resp.Body.Close()
-		payload = make([]measurement, 0, 100)
+		payload = make([]Measurement, 0, 100)
 
 		fmt.Println(resp)
 	}
@@ -182,7 +179,7 @@ func main() {
 	check_list := get_checks(config)
 
 	checks := make(chan Check)
-	measurements := make(chan measurement)
+	measurements := make(chan Measurement)
 
 	go measurer(config, checks, measurements)
 	go recorder(config, measurements)
