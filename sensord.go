@@ -65,8 +65,6 @@ func measure(config Config, c Check) measurement {
 
 	easy.Setopt(curl.OPT_URL, c.Url)
 
-	m.Url = c.Url
-
 	// dummy func for curl output
 	noOut := func(buf []byte, userdata interface{}) bool {
 		return true
