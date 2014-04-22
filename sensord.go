@@ -19,13 +19,13 @@ type Config struct {
 	MeasurementsUrl string
 }
 
-type check struct {
+type Check struct {
 	Id  string `json:"id"`
 	Url string `json:"url"`
 }
 
 type measurement struct {
-	Check             check   `json:"check"`
+	Check             Check   `json:"check"`
 	Id                string  `json:"id"`
 	CheckId           string  `json:"check_id"`
 	Location          string  `json:"location"`
