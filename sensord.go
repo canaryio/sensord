@@ -49,12 +49,12 @@ func GetEnvWithDefault(env string, def string) string {
 	return tmp
 }
 
-func measure(config Config, c Check) Measurement {
+func (c *Check) Measure(config Config) Measurement {
 	var m Measurement
 
 	id, _ := uuid.NewV4()
 	m.Id = id.String()
-	m.Check = c
+	m.Check = *c
 	m.Location = config.Location
 
 	easy := curl.EasyInit()
@@ -110,7 +110,7 @@ func measure(config Config, c Check) Measurement {
 func measurer(config Config, checks chan Check, measurements chan Measurement) {
 	for {
 		c := <-checks
-		m := measure(config, c)
+		m := c.Measure(config)
 
 		measurements <- m
 	}
