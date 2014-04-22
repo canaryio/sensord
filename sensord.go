@@ -25,6 +25,7 @@ type check struct {
 }
 
 type measurement struct {
+	Check             check   `json:"check"`
 	Id                string  `json:"id"`
 	CheckId           string  `json:"check_id"`
 	Location          string  `json:"location"`
