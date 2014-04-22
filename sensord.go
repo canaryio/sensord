@@ -56,6 +56,7 @@ func measure(config Config, c Check) measurement {
 
 	id, _ := uuid.NewV4()
 	m.Id = id.String()
+	m.Check = c
 	m.CheckId = c.Id
 	m.Location = config.Location
 
