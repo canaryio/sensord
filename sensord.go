@@ -72,10 +72,7 @@ func (c *Check) Measure(config Config) Measurement {
 	easy.Setopt(curl.OPT_TIMEOUT, 10)
 
 	now := time.Now()
-	nanos := now.UnixNano()
-	millis := nanos / 1000000
-
-	m.T = int(millis)
+	m.T = int(now.Unix())
 
 	if err := easy.Perform(); err != nil {
 		if e, ok := err.(curl.CurlError); ok {
