@@ -119,6 +119,26 @@ func MeasureLoop(config Config, checks chan Check, measurements chan Measurement
 	}
 }
 
+func Record(config Config, payload []Measurement) {
+	s, err := json.Marshal(&payload)
+	if err != nil {
+		panic(err)
+	}
+
+	body := bytes.NewBuffer(s)
+	req, err := http.NewRequest("POST", config.MeasurementsUrl, body)
+	if err != nil {
+		panic(err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	resp.Body.Close()
+}
+
 func RecordLoop(config Config, measurements chan Measurement) {
 	tickChan := time.NewTicker(time.Millisecond * 1000).C
 	payload := make([]Measurement, 0, 100)
@@ -132,23 +152,7 @@ func RecordLoop(config Config, measurements chan Measurement) {
 			fmt.Printf("fn=RecordLoop payload_size=%d\n", l)
 
 			if l > 0 {
-				s, err := json.Marshal(&payload)
-				if err != nil {
-					panic(err)
-				}
-
-				body := bytes.NewBuffer(s)
-				req, err := http.NewRequest("POST", config.MeasurementsUrl, body)
-				if err != nil {
-					panic(err)
-				}
-
-				req.Header.Add("Content-Type", "application/json")
-				resp, err := http.DefaultClient.Do(req)
-				if err != nil {
-					panic(err)
-				}
-				resp.Body.Close()
+				Record(config, payload)
 				payload = make([]Measurement, 0, 100)
 			}
 		}
