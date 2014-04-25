@@ -183,8 +183,16 @@ func main() {
 	config.Location = GetEnvWithDefault("LOCATION", "undefined")
 	config.ChecksUrl = GetEnvWithDefault("CHECKS_URL", "https://s3.amazonaws.com/canary-public-data/data.json")
 	config.MeasurementsUrl = GetEnvWithDefault("MEASUREMENTS_URL", "http://localhost:5000/measurements")
-	measurerCount, _ := strconv.Atoi(GetEnvWithDefault("MEASURER_COUNT", "1"))
-	recorderCount, _ := strconv.Atoi(GetEnvWithDefault("RECORDER_COUNT", "1"))
+
+	measurerCount, err := strconv.Atoi(GetEnvWithDefault("MEASURER_COUNT", "1"))
+	if err != nil {
+		panic(err)
+	}
+
+	recorderCount, err := strconv.Atoi(GetEnvWithDefault("RECORDER_COUNT", "1"))
+	if err != nil {
+		panic(err)
+	}
 
 	check_list := GetChecks(config)
 
