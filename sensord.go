@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/andelf/go-curl"
@@ -181,8 +183,6 @@ func main() {
 	config.ChecksUrl = GetEnvWithDefault("CHECKS_URL", "https://s3.amazonaws.com/canary-public-data/data.json")
 	config.MeasurementsUrl = GetEnvWithDefault("MEASUREMENTS_URL", "http://localhost:5000/measurements")
 
-	fmt.Printf("%s\n", config.MeasurementsUrl)
-
 	check_list := GetChecks(config)
 
 	checks := make(chan Check)
@@ -194,8 +194,8 @@ func main() {
 	for _, c := range check_list {
 		go ScheduleLoop(c, checks)
 	}
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	for {
-		time.Sleep(1000 * time.Millisecond)
-	}
+	<-sigs
 }
