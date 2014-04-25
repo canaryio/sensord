@@ -120,31 +120,38 @@ func MeasureLoop(config Config, checks chan Check, measurements chan Measurement
 }
 
 func RecordLoop(config Config, measurements chan Measurement) {
+	tickChan := time.NewTicker(time.Millisecond * 1000).C
 	payload := make([]Measurement, 0, 100)
+
 	for {
-		m := <-measurements
-		payload = append(payload, m)
+		select {
+		case m := <-measurements:
+			payload = append(payload, m)
+		case <-tickChan:
+			l := len(payload)
+			fmt.Printf("fn=RecordLoop payload_size=%d\n", l)
 
-		s, err := json.Marshal(&payload)
-		if err != nil {
-			panic(err)
+			if l > 0 {
+				s, err := json.Marshal(&payload)
+				if err != nil {
+					panic(err)
+				}
+
+				body := bytes.NewBuffer(s)
+				req, err := http.NewRequest("POST", config.MeasurementsUrl, body)
+				if err != nil {
+					panic(err)
+				}
+
+				req.Header.Add("Content-Type", "application/json")
+				resp, err := http.DefaultClient.Do(req)
+				if err != nil {
+					panic(err)
+				}
+				resp.Body.Close()
+				payload = make([]Measurement, 0, 100)
+			}
 		}
-
-		body := bytes.NewBuffer(s)
-		req, err := http.NewRequest("POST", config.MeasurementsUrl, body)
-		if err != nil {
-			panic(err)
-		}
-
-		req.Header.Add("Content-Type", "application/json")
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			panic(err)
-		}
-		resp.Body.Close()
-		payload = make([]Measurement, 0, 100)
-
-		fmt.Println(resp)
 	}
 }
 
