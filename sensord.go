@@ -168,6 +168,13 @@ func GetChecks(config Config) []Check {
 	return checks
 }
 
+func ScheduleLoop(check Check, checks chan Check) {
+	for {
+		checks <- check
+		time.Sleep(1000 * time.Millisecond)
+	}
+}
+
 func main() {
 	var config Config
 	config.Location = GetEnvWithDefault("LOCATION", "undefined")
@@ -184,11 +191,11 @@ func main() {
 	go MeasureLoop(config, checks, measurements)
 	go RecordLoop(config, measurements)
 
-	for {
-		for _, c := range check_list {
-			checks <- c
-		}
+	for _, c := range check_list {
+		go ScheduleLoop(c, checks)
+	}
 
+	for {
 		time.Sleep(1000 * time.Millisecond)
 	}
 }
