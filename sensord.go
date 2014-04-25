@@ -7,6 +7,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/andelf/go-curl"
@@ -168,27 +171,46 @@ func GetChecks(config Config) []Check {
 	return checks
 }
 
+func ScheduleLoop(check Check, checks chan Check) {
+	for {
+		checks <- check
+		time.Sleep(1000 * time.Millisecond)
+	}
+}
+
 func main() {
 	var config Config
 	config.Location = GetEnvWithDefault("LOCATION", "undefined")
 	config.ChecksUrl = GetEnvWithDefault("CHECKS_URL", "https://s3.amazonaws.com/canary-public-data/data.json")
 	config.MeasurementsUrl = GetEnvWithDefault("MEASUREMENTS_URL", "http://localhost:5000/measurements")
 
-	fmt.Printf("%s\n", config.MeasurementsUrl)
+	measurerCount, err := strconv.Atoi(GetEnvWithDefault("MEASURER_COUNT", "1"))
+	if err != nil {
+		panic(err)
+	}
+
+	recorderCount, err := strconv.Atoi(GetEnvWithDefault("RECORDER_COUNT", "1"))
+	if err != nil {
+		panic(err)
+	}
 
 	check_list := GetChecks(config)
 
 	checks := make(chan Check)
 	measurements := make(chan Measurement)
 
-	go MeasureLoop(config, checks, measurements)
-	go RecordLoop(config, measurements)
-
-	for {
-		for _, c := range check_list {
-			checks <- c
-		}
-
-		time.Sleep(1000 * time.Millisecond)
+	for i := 0; i < measurerCount; i++ {
+		go MeasureLoop(config, checks, measurements)
 	}
+	for i := 0; i < recorderCount; i++ {
+		go RecordLoop(config, measurements)
+	}
+
+	for _, c := range check_list {
+		go ScheduleLoop(c, checks)
+	}
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	<-sigs
 }
