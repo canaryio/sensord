@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -17,9 +18,11 @@ import (
 )
 
 type Config struct {
-	Location        string
-	ChecksUrl       string
-	MeasurementsUrl string
+	Location         string
+	ChecksUrl        string
+	MeasurementsUrl  string
+	MeasurementsUser string
+	MeasurementsPass string
 }
 
 type Check struct {
@@ -132,10 +135,17 @@ func Record(config Config, payload []Measurement) {
 	}
 
 	req.Header.Add("Content-Type", "application/json")
+
+	if config.MeasurementsUser != "" {
+		req.SetBasicAuth(config.MeasurementsUser, config.MeasurementsPass)
+	}
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		panic(err)
 	}
+
+	fmt.Printf("fn=Record http_code=%d\n", resp.StatusCode)
 	resp.Body.Close()
 }
 
@@ -194,6 +204,16 @@ func main() {
 	config.Location = GetEnvWithDefault("LOCATION", "undefined")
 	config.ChecksUrl = GetEnvWithDefault("CHECKS_URL", "https://s3.amazonaws.com/canary-public-data/data.json")
 	config.MeasurementsUrl = GetEnvWithDefault("MEASUREMENTS_URL", "http://localhost:5000/measurements")
+
+	u, err := url.Parse(config.MeasurementsUrl)
+	if err != nil {
+		panic(err)
+	}
+
+	if u.User != nil {
+		config.MeasurementsUser = u.User.Username()
+		config.MeasurementsPass, _ = u.User.Password()
+	}
 
 	measurerCount, err := strconv.Atoi(GetEnvWithDefault("MEASURER_COUNT", "1"))
 	if err != nil {
