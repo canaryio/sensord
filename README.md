@@ -1,7 +1,7 @@
 sensord
 =========
 
-A simple HTTP monitoring tool. Very much a WIP.
+A simple HTTP monitoring tool for [canary.io](http://canary.io).
 
 ## Running locally
 
