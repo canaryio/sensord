@@ -103,12 +103,12 @@ func (c *Check) Measure(config Config) Measurement {
 	return m
 }
 
-func measurer(config Config, checks chan Check, measurements chan Measurement) {
+func measurer(config Config, toMeasurer chan Check, toRecorder chan Measurement) {
 	for {
-		c := <-checks
+		c := <-toMeasurer
 		m := c.Measure(config)
 
-		measurements <- m
+		toRecorder <- m
 	}
 }
 
@@ -139,13 +139,13 @@ func record(config Config, payload []Measurement) {
 	resp.Body.Close()
 }
 
-func recorder(config Config, measurements chan Measurement) {
+func recorder(config Config, toRecorder chan Measurement) {
 	tickChan := time.NewTicker(time.Millisecond * 1000).C
 	payload := make([]Measurement, 0, 100)
 
 	for {
 		select {
-		case m := <-measurements:
+		case m := <-toRecorder:
 			payload = append(payload, m)
 		case <-tickChan:
 			l := len(payload)
@@ -182,9 +182,9 @@ func getChecks(config Config) []Check {
 	return checks
 }
 
-func scheduler(check Check, checks chan Check) {
+func scheduler(check Check, toMeasurer chan Check) {
 	for {
-		checks <- check
+		toMeasurer <- check
 		time.Sleep(1000 * time.Millisecond)
 	}
 }
@@ -210,19 +210,19 @@ func main() {
 
 	check_list := getChecks(config)
 
-	checks := make(chan Check)
-	measurements := make(chan Measurement)
+	toMeasurer := make(chan Check)
+	toRecorder := make(chan Measurement)
 
 	for i := 0; i < config.MeasurerCount; i++ {
-		go measurer(config, checks, measurements)
+		go measurer(config, toMeasurer, toRecorder)
 	}
 
 	for i := 0; i < config.RecorderCount; i++ {
-		go recorder(config, measurements)
+		go recorder(config, toRecorder)
 	}
 
 	for _, c := range check_list {
-		go scheduler(c, checks)
+		go scheduler(c, toMeasurer)
 	}
 
 	select {}
