@@ -3,14 +3,12 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
 	"time"
 
 	"github.com/andelf/go-curl"
@@ -23,6 +21,8 @@ type Config struct {
 	MeasurementsUrl  string
 	MeasurementsUser string
 	MeasurementsPass string
+	MeasurerCount    int
+	RecorderCount    int
 }
 
 type Check struct {
@@ -43,16 +43,6 @@ type Measurement struct {
 	TotalTime         float64 `json:"total_time,omitempty"`
 	HttpStatus        int     `json:"http_status,omitempty"`
 	NameLookupTime    float64 `json:"namelookup_time,omitempty"`
-}
-
-func GetEnvWithDefault(env string, def string) string {
-	tmp := os.Getenv(env)
-
-	if tmp == "" {
-		return def
-	}
-
-	return tmp
 }
 
 func (c *Check) Measure(config Config) Measurement {
@@ -200,10 +190,13 @@ func ScheduleLoop(check Check, checks chan Check) {
 }
 
 func main() {
-	var config Config
-	config.Location = GetEnvWithDefault("LOCATION", "undefined")
-	config.ChecksUrl = GetEnvWithDefault("CHECKS_URL", "https://s3.amazonaws.com/canary-public-data/data.json")
-	config.MeasurementsUrl = GetEnvWithDefault("MEASUREMENTS_URL", "http://localhost:5000/measurements")
+	config := Config{}
+	flag.StringVar(&config.Location, "location", "undefined", "location of this sensor")
+	flag.StringVar(&config.ChecksUrl, "checks_url", "https://s3.amazonaws.com/canary-public-data/checks.json", "URL for check data")
+	flag.StringVar(&config.MeasurementsUrl, "measurements_url", "http://localhost:5000/measurements", "URL to POST measurements to")
+	flag.IntVar(&config.MeasurerCount, "measurer_count", 1, "number of measurers to run")
+	flag.IntVar(&config.RecorderCount, "recorder_count", 1, "number of recorders to run")
+	flag.Parse()
 
 	u, err := url.Parse(config.MeasurementsUrl)
 	if err != nil {
@@ -215,33 +208,22 @@ func main() {
 		config.MeasurementsPass, _ = u.User.Password()
 	}
 
-	measurerCount, err := strconv.Atoi(GetEnvWithDefault("MEASURER_COUNT", "1"))
-	if err != nil {
-		panic(err)
-	}
-
-	recorderCount, err := strconv.Atoi(GetEnvWithDefault("RECORDER_COUNT", "1"))
-	if err != nil {
-		panic(err)
-	}
-
 	check_list := GetChecks(config)
 
 	checks := make(chan Check)
 	measurements := make(chan Measurement)
 
-	for i := 0; i < measurerCount; i++ {
+	for i := 0; i < config.MeasurerCount; i++ {
 		go MeasureLoop(config, checks, measurements)
 	}
-	for i := 0; i < recorderCount; i++ {
+
+	for i := 0; i < config.RecorderCount; i++ {
 		go RecordLoop(config, measurements)
 	}
 
 	for _, c := range check_list {
 		go ScheduleLoop(c, checks)
 	}
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	<-sigs
+	select {}
 }
