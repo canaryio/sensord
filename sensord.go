@@ -3,14 +3,12 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
 	"time"
 
 	"github.com/andelf/go-curl"
@@ -23,6 +21,8 @@ type Config struct {
 	MeasurementsUrl  string
 	MeasurementsUser string
 	MeasurementsPass string
+	MeasurerCount    int
+	RecorderCount    int
 }
 
 type Check struct {
@@ -43,16 +43,6 @@ type Measurement struct {
 	TotalTime         float64 `json:"total_time,omitempty"`
 	HttpStatus        int     `json:"http_status,omitempty"`
 	NameLookupTime    float64 `json:"namelookup_time,omitempty"`
-}
-
-func GetEnvWithDefault(env string, def string) string {
-	tmp := os.Getenv(env)
-
-	if tmp == "" {
-		return def
-	}
-
-	return tmp
 }
 
 func (c *Check) Measure(config Config) Measurement {
@@ -113,7 +103,7 @@ func (c *Check) Measure(config Config) Measurement {
 	return m
 }
 
-func MeasureLoop(config Config, checks chan Check, measurements chan Measurement) {
+func measurer(config Config, checks chan Check, measurements chan Measurement) {
 	for {
 		c := <-checks
 		m := c.Measure(config)
@@ -122,7 +112,7 @@ func MeasureLoop(config Config, checks chan Check, measurements chan Measurement
 	}
 }
 
-func Record(config Config, payload []Measurement) {
+func record(config Config, payload []Measurement) {
 	s, err := json.Marshal(&payload)
 	if err != nil {
 		panic(err)
@@ -149,7 +139,7 @@ func Record(config Config, payload []Measurement) {
 	resp.Body.Close()
 }
 
-func RecordLoop(config Config, measurements chan Measurement) {
+func recorder(config Config, measurements chan Measurement) {
 	tickChan := time.NewTicker(time.Millisecond * 1000).C
 	payload := make([]Measurement, 0, 100)
 
@@ -162,14 +152,14 @@ func RecordLoop(config Config, measurements chan Measurement) {
 			fmt.Printf("fn=RecordLoop payload_size=%d\n", l)
 
 			if l > 0 {
-				Record(config, payload)
+				record(config, payload)
 				payload = make([]Measurement, 0, 100)
 			}
 		}
 	}
 }
 
-func GetChecks(config Config) []Check {
+func getChecks(config Config) []Check {
 	url := config.ChecksUrl
 
 	res, err := http.Get(url)
@@ -192,7 +182,7 @@ func GetChecks(config Config) []Check {
 	return checks
 }
 
-func ScheduleLoop(check Check, checks chan Check) {
+func scheduler(check Check, checks chan Check) {
 	for {
 		checks <- check
 		time.Sleep(1000 * time.Millisecond)
@@ -200,10 +190,13 @@ func ScheduleLoop(check Check, checks chan Check) {
 }
 
 func main() {
-	var config Config
-	config.Location = GetEnvWithDefault("LOCATION", "undefined")
-	config.ChecksUrl = GetEnvWithDefault("CHECKS_URL", "https://s3.amazonaws.com/canary-public-data/data.json")
-	config.MeasurementsUrl = GetEnvWithDefault("MEASUREMENTS_URL", "http://localhost:5000/measurements")
+	config := Config{}
+	flag.StringVar(&config.Location, "location", "undefined", "location of this sensor")
+	flag.StringVar(&config.ChecksUrl, "checks_url", "https://s3.amazonaws.com/canary-public-data/checks.json", "URL for check data")
+	flag.StringVar(&config.MeasurementsUrl, "measurements_url", "http://localhost:5000/measurements", "URL to POST measurements to")
+	flag.IntVar(&config.MeasurerCount, "measurer_count", 1, "number of measurers to run")
+	flag.IntVar(&config.RecorderCount, "recorder_count", 1, "number of recorders to run")
+	flag.Parse()
 
 	u, err := url.Parse(config.MeasurementsUrl)
 	if err != nil {
@@ -215,33 +208,22 @@ func main() {
 		config.MeasurementsPass, _ = u.User.Password()
 	}
 
-	measurerCount, err := strconv.Atoi(GetEnvWithDefault("MEASURER_COUNT", "1"))
-	if err != nil {
-		panic(err)
-	}
-
-	recorderCount, err := strconv.Atoi(GetEnvWithDefault("RECORDER_COUNT", "1"))
-	if err != nil {
-		panic(err)
-	}
-
-	check_list := GetChecks(config)
+	check_list := getChecks(config)
 
 	checks := make(chan Check)
 	measurements := make(chan Measurement)
 
-	for i := 0; i < measurerCount; i++ {
-		go MeasureLoop(config, checks, measurements)
+	for i := 0; i < config.MeasurerCount; i++ {
+		go measurer(config, checks, measurements)
 	}
-	for i := 0; i < recorderCount; i++ {
-		go RecordLoop(config, measurements)
+
+	for i := 0; i < config.RecorderCount; i++ {
+		go recorder(config, measurements)
 	}
 
 	for _, c := range check_list {
-		go ScheduleLoop(c, checks)
+		go scheduler(c, checks)
 	}
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	<-sigs
+	select {}
 }
