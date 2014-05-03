@@ -210,19 +210,19 @@ func main() {
 
 	check_list := getChecks(config)
 
-	checks := make(chan Check)
-	measurements := make(chan Measurement)
+	toMeasurer := make(chan Check)
+	toRecorder := make(chan Measurement)
 
 	for i := 0; i < config.MeasurerCount; i++ {
-		go measurer(config, checks, measurements)
+		go measurer(config, toMeasurer, toRecorder)
 	}
 
 	for i := 0; i < config.RecorderCount; i++ {
-		go recorder(config, measurements)
+		go recorder(config, toRecorder)
 	}
 
 	for _, c := range check_list {
-		go scheduler(c, checks)
+		go scheduler(c, toMeasurer)
 	}
 
 	select {}
