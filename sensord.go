@@ -103,7 +103,7 @@ func (c *Check) Measure(config Config) Measurement {
 	return m
 }
 
-func MeasureLoop(config Config, checks chan Check, measurements chan Measurement) {
+func measurer(config Config, checks chan Check, measurements chan Measurement) {
 	for {
 		c := <-checks
 		m := c.Measure(config)
@@ -112,7 +112,7 @@ func MeasureLoop(config Config, checks chan Check, measurements chan Measurement
 	}
 }
 
-func Record(config Config, payload []Measurement) {
+func record(config Config, payload []Measurement) {
 	s, err := json.Marshal(&payload)
 	if err != nil {
 		panic(err)
@@ -139,7 +139,7 @@ func Record(config Config, payload []Measurement) {
 	resp.Body.Close()
 }
 
-func RecordLoop(config Config, measurements chan Measurement) {
+func recorder(config Config, measurements chan Measurement) {
 	tickChan := time.NewTicker(time.Millisecond * 1000).C
 	payload := make([]Measurement, 0, 100)
 
@@ -152,14 +152,14 @@ func RecordLoop(config Config, measurements chan Measurement) {
 			fmt.Printf("fn=RecordLoop payload_size=%d\n", l)
 
 			if l > 0 {
-				Record(config, payload)
+				record(config, payload)
 				payload = make([]Measurement, 0, 100)
 			}
 		}
 	}
 }
 
-func GetChecks(config Config) []Check {
+func getChecks(config Config) []Check {
 	url := config.ChecksUrl
 
 	res, err := http.Get(url)
@@ -182,7 +182,7 @@ func GetChecks(config Config) []Check {
 	return checks
 }
 
-func ScheduleLoop(check Check, checks chan Check) {
+func scheduler(check Check, checks chan Check) {
 	for {
 		checks <- check
 		time.Sleep(1000 * time.Millisecond)
@@ -208,21 +208,21 @@ func main() {
 		config.MeasurementsPass, _ = u.User.Password()
 	}
 
-	check_list := GetChecks(config)
+	check_list := getChecks(config)
 
 	checks := make(chan Check)
 	measurements := make(chan Measurement)
 
 	for i := 0; i < config.MeasurerCount; i++ {
-		go MeasureLoop(config, checks, measurements)
+		go measurer(config, checks, measurements)
 	}
 
 	for i := 0; i < config.RecorderCount; i++ {
-		go RecordLoop(config, measurements)
+		go recorder(config, measurements)
 	}
 
 	for _, c := range check_list {
-		go ScheduleLoop(c, checks)
+		go scheduler(c, checks)
 	}
 
 	select {}
