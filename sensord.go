@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -112,51 +110,17 @@ func measurer(config Config, toMeasurer chan Check, toRecorder chan Measurement)
 	}
 }
 
-func record(config Config, payload []Measurement) {
-	s, err := json.Marshal(&payload)
-	if err != nil {
-		panic(err)
-	}
-
-	body := bytes.NewBuffer(s)
-	req, err := http.NewRequest("POST", config.MeasurementsUrl, body)
-	if err != nil {
-		panic(err)
-	}
-
-	req.Header.Add("Content-Type", "application/json")
-
-	if config.MeasurementsUser != "" {
-		req.SetBasicAuth(config.MeasurementsUser, config.MeasurementsPass)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("fn=Record http_code=%d\n", resp.StatusCode)
-	resp.Body.Close()
-}
-
 func recorder(config Config, toRecorder chan Measurement) {
-	tickChan := time.NewTicker(time.Millisecond * 1000).C
-	payload := make([]Measurement, 0, 100)
-
-	for {
-		select {
-		case m := <-toRecorder:
-			payload = append(payload, m)
-		case <-tickChan:
-			l := len(payload)
-			fmt.Printf("fn=RecordLoop payload_size=%d\n", l)
-
-			if l > 0 {
-				record(config, payload)
-				payload = make([]Measurement, 0, 100)
-			}
+	h := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		enc := json.NewEncoder(w)
+		for {
+			enc.Encode(<-toRecorder)
 		}
 	}
+
+	http.HandleFunc("/measurements", h)
+	http.ListenAndServe(":5000", nil)
 }
 
 func getChecks(config Config) []Check {
@@ -195,7 +159,6 @@ func main() {
 	flag.StringVar(&config.ChecksUrl, "checks_url", "https://s3.amazonaws.com/canary-public-data/checks.json", "URL for check data")
 	flag.StringVar(&config.MeasurementsUrl, "measurements_url", "http://localhost:5000/measurements", "URL to POST measurements to")
 	flag.IntVar(&config.MeasurerCount, "measurer_count", 1, "number of measurers to run")
-	flag.IntVar(&config.RecorderCount, "recorder_count", 1, "number of recorders to run")
 	flag.Parse()
 
 	u, err := url.Parse(config.MeasurementsUrl)
@@ -217,9 +180,7 @@ func main() {
 		go measurer(config, toMeasurer, toRecorder)
 	}
 
-	for i := 0; i < config.RecorderCount; i++ {
-		go recorder(config, toRecorder)
-	}
+	go recorder(config, toRecorder)
 
 	for _, c := range check_list {
 		go scheduler(c, toMeasurer)
