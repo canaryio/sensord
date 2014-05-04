@@ -21,5 +21,4 @@ Usage of ./sensord:
   -location="undefined": location of this sensor
   -measurements_url="http://localhost:5000/measurements": URL to POST measurements to
   -measurer_count=1: number of measurers to run
-  -recorder_count=1: number of recorders to run
 ```
