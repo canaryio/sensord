@@ -160,15 +160,18 @@ func main() {
 	toMeasurer := make(chan Check)
 	toStreamer := make(chan Measurement)
 
+	// spawn one scheduler per check
+	for _, c := range check_list {
+		go scheduler(c, toMeasurer)
+	}
+
+	// spawn N measurers
 	for i := 0; i < config.MeasurerCount; i++ {
 		go measurer(config, toMeasurer, toStreamer)
 	}
 
+	// stream measurements to clients over HTTP
 	go streamer(config, toStreamer)
-
-	for _, c := range check_list {
-		go scheduler(c, toMeasurer)
-	}
 
 	select {}
 }
