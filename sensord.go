@@ -5,7 +5,6 @@ import (
 	"flag"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
 	"time"
 
@@ -14,13 +13,9 @@ import (
 )
 
 type Config struct {
-	Location         string
-	ChecksUrl        string
-	MeasurementsUrl  string
-	MeasurementsUser string
-	MeasurementsPass string
-	MeasurerCount    int
-	RecorderCount    int
+	Location      string
+	ChecksUrl     string
+	MeasurerCount int
 }
 
 type Check struct {
@@ -157,19 +152,8 @@ func main() {
 	config := Config{}
 	flag.StringVar(&config.Location, "location", "undefined", "location of this sensor")
 	flag.StringVar(&config.ChecksUrl, "checks_url", "https://s3.amazonaws.com/canary-public-data/checks.json", "URL for check data")
-	flag.StringVar(&config.MeasurementsUrl, "measurements_url", "http://localhost:5000/measurements", "URL to POST measurements to")
 	flag.IntVar(&config.MeasurerCount, "measurer_count", 1, "number of measurers to run")
 	flag.Parse()
-
-	u, err := url.Parse(config.MeasurementsUrl)
-	if err != nil {
-		panic(err)
-	}
-
-	if u.User != nil {
-		config.MeasurementsUser = u.User.Username()
-		config.MeasurementsPass, _ = u.User.Password()
-	}
 
 	check_list := getChecks(config)
 
