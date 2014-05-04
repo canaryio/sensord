@@ -101,21 +101,21 @@ func (c *Check) Measure(config Config) Measurement {
 	return m
 }
 
-func measurer(config Config, toMeasurer chan Check, toRecorder chan Measurement) {
+func measurer(config Config, toMeasurer chan Check, toStreamer chan Measurement) {
 	for {
 		c := <-toMeasurer
 		m := c.Measure(config)
 
-		toRecorder <- m
+		toStreamer <- m
 	}
 }
 
-func recorder(config Config, toRecorder chan Measurement) {
+func streamer(config Config, toStreamer chan Measurement) {
 	h := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		enc := json.NewEncoder(w)
 		for {
-			enc.Encode(<-toRecorder)
+			enc.Encode(<-toStreamer)
 		}
 	}
 
@@ -174,13 +174,13 @@ func main() {
 	check_list := getChecks(config)
 
 	toMeasurer := make(chan Check)
-	toRecorder := make(chan Measurement)
+	toStreamer := make(chan Measurement)
 
 	for i := 0; i < config.MeasurerCount; i++ {
-		go measurer(config, toMeasurer, toRecorder)
+		go measurer(config, toMeasurer, toStreamer)
 	}
 
-	go recorder(config, toRecorder)
+	go streamer(config, toStreamer)
 
 	for _, c := range check_list {
 		go scheduler(c, toMeasurer)
