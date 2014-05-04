@@ -110,7 +110,14 @@ func streamer(config Config, toStreamer chan Measurement) {
 		w.Header().Set("Content-Type", "application/json")
 		enc := json.NewEncoder(w)
 		for {
-			enc.Encode(<-toStreamer)
+			err := enc.Encode(<-toStreamer)
+			if err != nil {
+				return
+			}
+
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
 		}
 	}
 
