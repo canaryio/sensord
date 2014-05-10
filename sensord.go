@@ -43,6 +43,7 @@ type Measurement struct {
 	TotalTime         float64 `json:"total_time,omitempty"`
 	HttpStatus        int     `json:"http_status,omitempty"`
 	NameLookupTime    float64 `json:"namelookup_time,omitempty"`
+	SizeDownload      float64 `json:"size_download,omitempty"`
 }
 
 func (c *Check) Measure(config Config) Measurement {
@@ -99,6 +100,9 @@ func (c *Check) Measure(config Config) Measurement {
 
 	primary_ip, _ := easy.Getinfo(curl.INFO_PRIMARY_IP)
 	m.PrimaryIp = primary_ip.(string)
+
+	size_download, _ := easy.Getinfo(curl.INFO_SIZE_DOWNLOAD)
+	m.SizeDownload = size_download.(float64)
 
 	return m
 }
