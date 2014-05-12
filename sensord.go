@@ -12,6 +12,8 @@ import (
 	"github.com/nu7hatch/gouuid"
 )
 
+var config Config
+
 type Config struct {
 	Location      string
 	ChecksUrl     string
@@ -159,11 +161,13 @@ func scheduler(check Check, toMeasurer chan Check) {
 	}
 }
 
-func main() {
-	config := Config{}
+func init() {
 	flag.StringVar(&config.Location, "location", "undefined", "location of this sensor")
 	flag.StringVar(&config.ChecksUrl, "checks_url", "https://s3.amazonaws.com/canary-public-data/checks.json", "URL for check data")
 	flag.IntVar(&config.MeasurerCount, "measurer_count", 1, "number of measurers to run")
+}
+
+func main() {
 	flag.Parse()
 
 	check_list := getChecks(config)
