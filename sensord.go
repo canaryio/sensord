@@ -156,19 +156,19 @@ func getChecks(config Config) []Check {
 
 	res, err := http.Get(url)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	var checks []Check
 	err = json.Unmarshal(body, &checks)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	return checks
