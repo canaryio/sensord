@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -15,6 +16,7 @@ import (
 var config Config
 
 type Config struct {
+	Port          string
 	Location      string
 	ChecksUrl     string
 	MeasurerCount int
@@ -128,7 +130,12 @@ func streamer(config Config, toStreamer chan Measurement) {
 	}
 
 	http.HandleFunc("/measurements", h)
-	http.ListenAndServe(":5000", nil)
+
+	log.Printf("fn=streamer listening=true port=%s\n", config.Port)
+	err := http.ListenAndServe(":"+config.Port, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func getChecks(config Config) []Check {
@@ -162,6 +169,7 @@ func scheduler(check Check, toMeasurer chan Check) {
 }
 
 func init() {
+	flag.StringVar(&config.Port, "port", "5000", "port the HTTP server should listen on")
 	flag.StringVar(&config.Location, "location", "undefined", "location of this sensor")
 	flag.StringVar(&config.ChecksUrl, "checks_url", "https://s3.amazonaws.com/canary-public-data/checks.json", "URL for check data")
 	flag.IntVar(&config.MeasurerCount, "measurer_count", 1, "number of measurers to run")
