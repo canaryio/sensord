@@ -17,48 +17,48 @@ import (
 var config Config
 
 type Config struct {
-	HttpBasicUsername string
-	HttpBasicPassword string
-	HttpBasicRealm    string
+	HTTPBasicUsername string
+	HTTPBasicPassword string
+	HTTPBasicRealm    string
 	Port              string
 	Location          string
-	ChecksUrl         string
+	ChecksURL         string
 	MeasurerCount     int
 }
 
 type Check struct {
-	Id  string `json:"id"`
-	Url string `json:"url"`
+	ID  string `json:"id"`
+	URL string `json:"url"`
 }
 
 type Measurement struct {
 	Check             Check   `json:"check"`
-	Id                string  `json:"id"`
+	ID                string  `json:"id"`
 	Location          string  `json:"location"`
 	T                 int     `json:"t"`
 	ExitStatus        int     `json:"exit_status"`
-	ConnectTime       float64 `json:"connect_time,omitempty"`
-	StartTransferTime float64 `json:"starttransfer_time,omitempty"`
-	LocalIp           string  `json:"local_ip,omitempty"`
-	PrimaryIp         string  `json:"primary_ip,omitempty"`
-	TotalTime         float64 `json:"total_time,omitempty"`
-	HttpStatus        int     `json:"http_status,omitempty"`
-	NameLookupTime    float64 `json:"namelookup_time,omitempty"`
-	SizeDownload      float64 `json:"size_download,omitempty"`
+	ConnectTime       float64 `json:"connectTime,omitempty"`
+	StartTransferTime float64 `json:"starttransferTime,omitempty"`
+	LocalIP           string  `json:"localIP,omitempty"`
+	PrimaryIP         string  `json:"primaryIP,omitempty"`
+	TotalTime         float64 `json:"totalTime,omitempty"`
+	HTTPStatus        int     `json:"httpStatus,omitempty"`
+	NameLookupTime    float64 `json:"namelookupTime,omitempty"`
+	SizeDownload      float64 `json:"sizeDownload,omitempty"`
 }
 
 func (c *Check) Measure(config Config) Measurement {
 	var m Measurement
 
 	id, _ := uuid.NewV4()
-	m.Id = id.String()
+	m.ID = id.String()
 	m.Check = *c
 	m.Location = config.Location
 
 	easy := curl.EasyInit()
 	defer easy.Cleanup()
 
-	easy.Setopt(curl.OPT_URL, c.Url)
+	easy.Setopt(curl.OPT_URL, c.URL)
 
 	// dummy func for curl output
 	noOut := func(buf []byte, userdata interface{}) bool {
@@ -81,29 +81,29 @@ func (c *Check) Measure(config Config) Measurement {
 	}
 
 	m.ExitStatus = 0
-	http_status, _ := easy.Getinfo(curl.INFO_RESPONSE_CODE)
-	m.HttpStatus = http_status.(int)
+	httpStatus, _ := easy.Getinfo(curl.INFO_RESPONSE_CODE)
+	m.HTTPStatus = httpStatus.(int)
 
-	connect_time, _ := easy.Getinfo(curl.INFO_CONNECT_TIME)
-	m.ConnectTime = connect_time.(float64)
+	connectTime, _ := easy.Getinfo(curl.INFO_CONNECT_TIME)
+	m.ConnectTime = connectTime.(float64)
 
-	namelookup_time, _ := easy.Getinfo(curl.INFO_NAMELOOKUP_TIME)
-	m.NameLookupTime = namelookup_time.(float64)
+	namelookupTime, _ := easy.Getinfo(curl.INFO_NAMELOOKUP_TIME)
+	m.NameLookupTime = namelookupTime.(float64)
 
-	starttransfer_time, _ := easy.Getinfo(curl.INFO_STARTTRANSFER_TIME)
-	m.StartTransferTime = starttransfer_time.(float64)
+	starttransferTime, _ := easy.Getinfo(curl.INFO_STARTTRANSFER_TIME)
+	m.StartTransferTime = starttransferTime.(float64)
 
-	total_time, _ := easy.Getinfo(curl.INFO_TOTAL_TIME)
-	m.TotalTime = total_time.(float64)
+	totalTime, _ := easy.Getinfo(curl.INFO_TOTAL_TIME)
+	m.TotalTime = totalTime.(float64)
 
-	local_ip, _ := easy.Getinfo(curl.INFO_LOCAL_IP)
-	m.LocalIp = local_ip.(string)
+	localIP, _ := easy.Getinfo(curl.INFO_LOCAL_IP)
+	m.LocalIP = localIP.(string)
 
-	primary_ip, _ := easy.Getinfo(curl.INFO_PRIMARY_IP)
-	m.PrimaryIp = primary_ip.(string)
+	primaryIP, _ := easy.Getinfo(curl.INFO_PRIMARY_IP)
+	m.PrimaryIP = primaryIP.(string)
 
-	size_download, _ := easy.Getinfo(curl.INFO_SIZE_DOWNLOAD)
-	m.SizeDownload = size_download.(float64)
+	sizeDownload, _ := easy.Getinfo(curl.INFO_SIZE_DOWNLOAD)
+	m.SizeDownload = sizeDownload.(float64)
 
 	return m
 }
@@ -119,8 +119,8 @@ func measurer(config Config, toMeasurer chan Check, toStreamer chan Measurement)
 
 func streamer(config Config, toStreamer chan Measurement) {
 	a := func(user, realm string) string {
-		if user == config.HttpBasicUsername {
-			return config.HttpBasicPassword
+		if user == config.HTTPBasicUsername {
+			return config.HTTPBasicPassword
 		}
 		return ""
 	}
@@ -140,7 +140,7 @@ func streamer(config Config, toStreamer chan Measurement) {
 		}
 	}
 
-	authenticator := auth.NewBasicAuthenticator(config.HttpBasicRealm, a)
+	authenticator := auth.NewBasicAuthenticator(config.HTTPBasicRealm, a)
 
 	http.HandleFunc("/measurements", authenticator.Wrap(h))
 
@@ -152,7 +152,7 @@ func streamer(config Config, toStreamer chan Measurement) {
 }
 
 func getChecks(config Config) []Check {
-	url := config.ChecksUrl
+	url := config.ChecksURL
 
 	res, err := http.Get(url)
 	if err != nil {
@@ -182,29 +182,29 @@ func scheduler(check Check, toMeasurer chan Check) {
 }
 
 func init() {
-	flag.StringVar(&config.HttpBasicUsername, "http_basic_username", "", "HTTP basic authentication username")
-	flag.StringVar(&config.HttpBasicPassword, "http_basic_password", "", "HTTP basic authentication password")
-	flag.StringVar(&config.HttpBasicRealm, "http_basic_realm", "", "HTTP basic authentication realm")
+	flag.StringVar(&config.HTTPBasicUsername, "http_basic_username", "", "HTTP basic authentication username")
+	flag.StringVar(&config.HTTPBasicPassword, "http_basic_password", "", "HTTP basic authentication password")
+	flag.StringVar(&config.HTTPBasicRealm, "http_basic_realm", "", "HTTP basic authentication realm")
 	flag.StringVar(&config.Port, "port", "5000", "port the HTTP server should listen on")
 	flag.StringVar(&config.Location, "location", "undefined", "location of this sensor")
-	flag.StringVar(&config.ChecksUrl, "checks_url", "https://s3.amazonaws.com/canary-public-data/checks.json", "URL for check data")
+	flag.StringVar(&config.ChecksURL, "checks_url", "https://s3.amazonaws.com/canary-public-data/checks.json", "URL for check data")
 	flag.IntVar(&config.MeasurerCount, "measurer_count", 1, "number of measurers to run")
 }
 
 func main() {
 	flag.Parse()
 
-	if len(config.HttpBasicUsername) == 0 && len(config.HttpBasicPassword) == 0 {
+	if len(config.HTTPBasicUsername) == 0 && len(config.HTTPBasicPassword) == 0 {
 		log.Fatal("fatal - HTTP basic auth not set correctly")
 	}
 
-	check_list := getChecks(config)
+	checkList := getChecks(config)
 
 	toMeasurer := make(chan Check)
 	toStreamer := make(chan Measurement)
 
 	// spawn one scheduler per check
-	for _, c := range check_list {
+	for _, c := range checkList {
 		go scheduler(c, toMeasurer)
 	}
 
