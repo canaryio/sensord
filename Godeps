@@ -1,7 +1,11 @@
 {
-	"ImportPath": "github.com/gorsuch/sensord",
+	"ImportPath": "github.com/canaryio/sensord",
 	"GoVersion": "go1.2.1",
 	"Deps": [
+		{
+			"ImportPath": "github.com/abbot/go-http-auth",
+			"Rev": "0c7409b87f66b1b5037bbf9f866aa9d8f7fd135c"
+		},
 		{
 			"ImportPath": "github.com/andelf/go-curl",
 			"Comment": "compatible-with-go-release.r60-52-gebc47f9",

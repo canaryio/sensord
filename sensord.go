@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/abbot/go-http-auth"
 	"github.com/andelf/go-curl"
 	"github.com/nu7hatch/gouuid"
 )
@@ -16,10 +17,13 @@ import (
 var config Config
 
 type Config struct {
-	Port          string
-	Location      string
-	ChecksUrl     string
-	MeasurerCount int
+	HttpBasicUsername string
+	HttpBasicPassword string
+	HttpBasicRealm    string
+	Port              string
+	Location          string
+	ChecksUrl         string
+	MeasurerCount     int
 }
 
 type Check struct {
@@ -114,7 +118,14 @@ func measurer(config Config, toMeasurer chan Check, toStreamer chan Measurement)
 }
 
 func streamer(config Config, toStreamer chan Measurement) {
-	h := func(w http.ResponseWriter, r *http.Request) {
+	a := func(user, realm string) string {
+		if user == config.HttpBasicUsername {
+			return config.HttpBasicPassword
+		}
+		return ""
+	}
+
+	h := func(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 		w.Header().Set("Content-Type", "application/json")
 		enc := json.NewEncoder(w)
 		for {
@@ -129,7 +140,9 @@ func streamer(config Config, toStreamer chan Measurement) {
 		}
 	}
 
-	http.HandleFunc("/measurements", h)
+	authenticator := auth.NewBasicAuthenticator(config.HttpBasicRealm, a)
+
+	http.HandleFunc("/measurements", authenticator.Wrap(h))
 
 	log.Printf("fn=streamer listening=true port=%s\n", config.Port)
 	err := http.ListenAndServe(":"+config.Port, nil)
@@ -169,6 +182,9 @@ func scheduler(check Check, toMeasurer chan Check) {
 }
 
 func init() {
+	flag.StringVar(&config.HttpBasicUsername, "http_basic_username", "", "HTTP basic authentication username")
+	flag.StringVar(&config.HttpBasicPassword, "http_basic_password", "", "HTTP basic authentication password")
+	flag.StringVar(&config.HttpBasicRealm, "http_basic_realm", "", "HTTP basic authentication realm")
 	flag.StringVar(&config.Port, "port", "5000", "port the HTTP server should listen on")
 	flag.StringVar(&config.Location, "location", "undefined", "location of this sensor")
 	flag.StringVar(&config.ChecksUrl, "checks_url", "https://s3.amazonaws.com/canary-public-data/checks.json", "URL for check data")
@@ -177,6 +193,10 @@ func init() {
 
 func main() {
 	flag.Parse()
+
+	if len(config.HttpBasicUsername) == 0 && len(config.HttpBasicPassword) == 0 {
+		log.Fatal("fatal - HTTP basic auth not set correctly")
+	}
 
 	check_list := getChecks(config)
 
