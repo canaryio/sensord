@@ -5,6 +5,15 @@ sensord
 
 It is the basic building block of [canary.io](http://canary.io).
 
+## Build
+
+```sh
+$ go get github.com/canaryio/sensord
+$ cd $GOPATH/src/github.com/canaryio/sensord
+$ godep get
+$ godep go build
+```
+
 ## Configuration
 
 Check the local help for options:
@@ -24,9 +33,6 @@ Usage of ./sensord:
 ## Usage Example
 
 ```sh
-$ go get github.com/gorsuch/sensord
-$ godep get
-
 # http basic auth is required to access the stream
 $ htpasswd -bn user pass
 user:$apr1$2mSJKjRD$LFvgR6LUV2O1MfnLUQXlq1
