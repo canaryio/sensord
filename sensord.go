@@ -1,28 +1,29 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"time"
 
+	"github.com/abbot/go-http-auth"
 	"github.com/andelf/go-curl"
 	"github.com/nu7hatch/gouuid"
 )
 
+var config Config
+
 type Config struct {
-	Location         string
-	ChecksUrl        string
-	MeasurementsUrl  string
-	MeasurementsUser string
-	MeasurementsPass string
-	MeasurerCount    int
-	RecorderCount    int
+	HttpBasicUsername string
+	HttpBasicPassword string
+	HttpBasicRealm    string
+	Port              string
+	Location          string
+	ChecksUrl         string
+	MeasurerCount     int
 }
 
 type Check struct {
@@ -107,59 +108,46 @@ func (c *Check) Measure(config Config) Measurement {
 	return m
 }
 
-func measurer(config Config, toMeasurer chan Check, toRecorder chan Measurement) {
+func measurer(config Config, toMeasurer chan Check, toStreamer chan Measurement) {
 	for {
 		c := <-toMeasurer
 		m := c.Measure(config)
 
-		toRecorder <- m
+		toStreamer <- m
 	}
 }
 
-func record(config Config, payload []Measurement) {
-	s, err := json.Marshal(&payload)
-	if err != nil {
-		panic(err)
+func streamer(config Config, toStreamer chan Measurement) {
+	a := func(user, realm string) string {
+		if user == config.HttpBasicUsername {
+			return config.HttpBasicPassword
+		}
+		return ""
 	}
 
-	body := bytes.NewBuffer(s)
-	req, err := http.NewRequest("POST", config.MeasurementsUrl, body)
-	if err != nil {
-		panic(err)
-	}
+	h := func(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
+		w.Header().Set("Content-Type", "application/json")
+		enc := json.NewEncoder(w)
+		for {
+			err := enc.Encode(<-toStreamer)
+			if err != nil {
+				return
+			}
 
-	req.Header.Add("Content-Type", "application/json")
-
-	if config.MeasurementsUser != "" {
-		req.SetBasicAuth(config.MeasurementsUser, config.MeasurementsPass)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("fn=Record http_code=%d\n", resp.StatusCode)
-	resp.Body.Close()
-}
-
-func recorder(config Config, toRecorder chan Measurement) {
-	tickChan := time.NewTicker(time.Millisecond * 1000).C
-	payload := make([]Measurement, 0, 100)
-
-	for {
-		select {
-		case m := <-toRecorder:
-			payload = append(payload, m)
-		case <-tickChan:
-			l := len(payload)
-			fmt.Printf("fn=RecordLoop payload_size=%d\n", l)
-
-			if l > 0 {
-				record(config, payload)
-				payload = make([]Measurement, 0, 100)
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
 			}
 		}
+	}
+
+	authenticator := auth.NewBasicAuthenticator(config.HttpBasicRealm, a)
+
+	http.HandleFunc("/measurements", authenticator.Wrap(h))
+
+	log.Printf("fn=streamer listening=true port=%s\n", config.Port)
+	err := http.ListenAndServe(":"+config.Port, nil)
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
@@ -193,41 +181,40 @@ func scheduler(check Check, toMeasurer chan Check) {
 	}
 }
 
-func main() {
-	config := Config{}
+func init() {
+	flag.StringVar(&config.HttpBasicUsername, "http_basic_username", "", "HTTP basic authentication username")
+	flag.StringVar(&config.HttpBasicPassword, "http_basic_password", "", "HTTP basic authentication password")
+	flag.StringVar(&config.HttpBasicRealm, "http_basic_realm", "", "HTTP basic authentication realm")
+	flag.StringVar(&config.Port, "port", "5000", "port the HTTP server should listen on")
 	flag.StringVar(&config.Location, "location", "undefined", "location of this sensor")
 	flag.StringVar(&config.ChecksUrl, "checks_url", "https://s3.amazonaws.com/canary-public-data/checks.json", "URL for check data")
-	flag.StringVar(&config.MeasurementsUrl, "measurements_url", "http://localhost:5000/measurements", "URL to POST measurements to")
 	flag.IntVar(&config.MeasurerCount, "measurer_count", 1, "number of measurers to run")
-	flag.IntVar(&config.RecorderCount, "recorder_count", 1, "number of recorders to run")
+}
+
+func main() {
 	flag.Parse()
 
-	u, err := url.Parse(config.MeasurementsUrl)
-	if err != nil {
-		panic(err)
-	}
-
-	if u.User != nil {
-		config.MeasurementsUser = u.User.Username()
-		config.MeasurementsPass, _ = u.User.Password()
+	if len(config.HttpBasicUsername) == 0 && len(config.HttpBasicPassword) == 0 {
+		log.Fatal("fatal - HTTP basic auth not set correctly")
 	}
 
 	check_list := getChecks(config)
 
 	toMeasurer := make(chan Check)
-	toRecorder := make(chan Measurement)
+	toStreamer := make(chan Measurement)
 
-	for i := 0; i < config.MeasurerCount; i++ {
-		go measurer(config, toMeasurer, toRecorder)
-	}
-
-	for i := 0; i < config.RecorderCount; i++ {
-		go recorder(config, toRecorder)
-	}
-
+	// spawn one scheduler per check
 	for _, c := range check_list {
 		go scheduler(c, toMeasurer)
 	}
+
+	// spawn N measurers
+	for i := 0; i < config.MeasurerCount; i++ {
+		go measurer(config, toMeasurer, toStreamer)
+	}
+
+	// stream measurements to clients over HTTP
+	go streamer(config, toStreamer)
 
 	select {}
 }
