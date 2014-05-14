@@ -37,14 +37,14 @@ type Measurement struct {
 	Location          string  `json:"location"`
 	T                 int     `json:"t"`
 	ExitStatus        int     `json:"exit_status"`
-	ConnectTime       float64 `json:"connectTime,omitempty"`
-	StartTransferTime float64 `json:"starttransferTime,omitempty"`
-	LocalIP           string  `json:"localIP,omitempty"`
-	PrimaryIP         string  `json:"primaryIP,omitempty"`
-	TotalTime         float64 `json:"totalTime,omitempty"`
-	HTTPStatus        int     `json:"httpStatus,omitempty"`
-	NameLookupTime    float64 `json:"namelookupTime,omitempty"`
-	SizeDownload      float64 `json:"sizeDownload,omitempty"`
+	ConnectTime       float64 `json:"connect_time,omitempty"`
+	StartTransferTime float64 `json:"starttransfer_time,omitempty"`
+	LocalIP           string  `json:"local_ip,omitempty"`
+	PrimaryIP         string  `json:"primary_ip,omitempty"`
+	TotalTime         float64 `json:"total_time,omitempty"`
+	HTTPStatus        int     `json:"http_status,omitempty"`
+	NameLookupTime    float64 `json:"namelookup_time,omitempty"`
+	SizeDownload      float64 `json:"size_download,omitempty"`
 }
 
 func (c *Check) Measure(config Config) Measurement {
