@@ -29,6 +29,7 @@ type Config struct {
 	LibratoEmail      string
 	LibratoToken      string
 	ScheduleTimer     metrics.Timer
+	MeasureTimer      metrics.Timer
 }
 
 type Check struct {
@@ -118,7 +119,7 @@ func measurer(config Config, toMeasurer chan Check, toStreamer chan Measurement)
 		c := <-toMeasurer
 		m := c.Measure(config)
 
-		toStreamer <- m
+		config.MeasureTimer.Time(func() { toStreamer <- m })
 	}
 }
 
@@ -199,7 +200,10 @@ func init() {
 	config.LibratoToken = os.Getenv("LIBRATO_TOKEN")
 
 	config.ScheduleTimer = metrics.NewTimer()
-	metrics.Register("schedule", config.ScheduleTimer)
+	metrics.Register("sensord.schedule", config.ScheduleTimer)
+
+	config.MeasureTimer = metrics.NewTimer()
+	metrics.Register("sensord.measure", config.MeasureTimer)
 }
 
 func main() {
