@@ -28,6 +28,7 @@ type Config struct {
 	MeasurerCount     int
 	LibratoEmail      string
 	LibratoToken      string
+	ScheduleTimer     metrics.Timer
 }
 
 type Check struct {
@@ -178,9 +179,9 @@ func getChecks(config Config) []Check {
 	return checks
 }
 
-func scheduler(check Check, toMeasurer chan Check) {
+func scheduler(config Config, check Check, toMeasurer chan Check) {
 	for {
-		toMeasurer <- check
+		config.ScheduleTimer.Time(func() { toMeasurer <- check })
 		time.Sleep(1000 * time.Millisecond)
 	}
 }
@@ -196,6 +197,9 @@ func init() {
 
 	config.LibratoEmail = os.Getenv("LIBRATO_EMAIL")
 	config.LibratoToken = os.Getenv("LIBRATO_TOKEN")
+
+	config.ScheduleTimer = metrics.NewTimer()
+	metrics.Register("schedule", config.ScheduleTimer)
 }
 
 func main() {
@@ -224,7 +228,7 @@ func main() {
 
 	// spawn one scheduler per check
 	for _, c := range checkList {
-		go scheduler(c, toMeasurer)
+		go scheduler(config, c, toMeasurer)
 	}
 
 	// spawn N measurers
