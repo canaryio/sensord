@@ -12,6 +12,8 @@ import (
 	"github.com/abbot/go-http-auth"
 	"github.com/andelf/go-curl"
 	"github.com/nu7hatch/gouuid"
+	"github.com/rcrowley/go-metrics"
+	"github.com/rcrowley/go-metrics/librato"
 )
 
 var config Config
@@ -24,6 +26,9 @@ type Config struct {
 	Location          string
 	ChecksURL         string
 	MeasurerCount     int
+	LibratoEmail      string
+	LibratoToken      string
+	LibratoSource     string
 }
 
 type Check struct {
@@ -189,6 +194,9 @@ func init() {
 	flag.StringVar(&config.Location, "location", "undefined", "location of this sensor")
 	flag.StringVar(&config.ChecksURL, "checks_url", "https://s3.amazonaws.com/canary-public-data/checks.json", "URL for check data")
 	flag.IntVar(&config.MeasurerCount, "measurer_count", 1, "number of measurers to run")
+
+	config.LibratoEmail = os.Getenv("LIBRATO_EMAIL")
+	config.LibratoToken = os.Getenv("LIBRATO_TOKEN")
 }
 
 func main() {
@@ -196,6 +204,18 @@ func main() {
 
 	if len(config.HTTPBasicUsername) == 0 && len(config.HTTPBasicPassword) == 0 {
 		log.Fatal("fatal - HTTP basic auth not set correctly")
+	}
+
+	if config.LibratoEmail != "" && config.LibratoToken != "" && config.LibratoSource != "" {
+		log.Println("fn=main metircs=librato")
+		go librato.Librato(metrics.DefaultRegistry,
+			10e9,                  // interval
+			config.LibratoEmail,   // account owner email address
+			config.LibratoToken,   // Librato API token
+			config.Location,       // source
+			[]float64{50, 95, 99}, // precentiles to send
+			time.Millisecond,      // time unit
+		)
 	}
 
 	checkList := getChecks(config)
