@@ -30,6 +30,15 @@ Usage of ./sensord:
   -measurer_count=1: number of measurers to run
 ```
 
+
+`sensord` allows metrics to be recorded to Librato.  You can configure with the following environment variables:
+
+```
+export LIBRATO_EMAIL=me@mydomain.com
+export LIBRATO_TOKEN=asdf
+export LIBRATO_SOURCE=my_hostname
+```
+
 ## Usage Example
 
 ```sh
