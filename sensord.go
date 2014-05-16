@@ -28,8 +28,8 @@ type Config struct {
 	MeasurerCount     int
 	LibratoEmail      string
 	LibratoToken      string
-	ScheduleTimer     metrics.Timer
-	MeasureTimer      metrics.Timer
+	ToMeasurerTimer   metrics.Timer
+	ToStreamerTimer   metrics.Timer
 }
 
 type Check struct {
@@ -119,7 +119,7 @@ func measurer(config Config, toMeasurer chan Check, toStreamer chan Measurement)
 		c := <-toMeasurer
 		m := c.Measure(config)
 
-		config.MeasureTimer.Time(func() { toStreamer <- m })
+		config.ToStreamerTimer.Time(func() { toStreamer <- m })
 	}
 }
 
@@ -182,7 +182,7 @@ func getChecks(config Config) []Check {
 
 func scheduler(config Config, check Check, toMeasurer chan Check) {
 	for {
-		config.ScheduleTimer.Time(func() { toMeasurer <- check })
+		config.ToMeasurerTimer.Time(func() { toMeasurer <- check })
 		time.Sleep(1000 * time.Millisecond)
 	}
 }
@@ -199,11 +199,11 @@ func init() {
 	config.LibratoEmail = os.Getenv("LIBRATO_EMAIL")
 	config.LibratoToken = os.Getenv("LIBRATO_TOKEN")
 
-	config.ScheduleTimer = metrics.NewTimer()
-	metrics.Register("sensord.schedule", config.ScheduleTimer)
+	config.ToMeasurerTimer = metrics.NewTimer()
+	metrics.Register("sensord.to_measurer", config.ToMeasurerTimer)
 
-	config.MeasureTimer = metrics.NewTimer()
-	metrics.Register("sensord.measure", config.MeasureTimer)
+	config.ToStreamerTimer = metrics.NewTimer()
+	metrics.Register("sensord.to_streamer", config.ToStreamerTimer)
 }
 
 func main() {
