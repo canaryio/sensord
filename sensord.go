@@ -28,7 +28,6 @@ type Config struct {
 	MeasurerCount     int
 	LibratoEmail      string
 	LibratoToken      string
-	LibratoSource     string
 }
 
 type Check struct {
@@ -206,7 +205,7 @@ func main() {
 		log.Fatal("fatal - HTTP basic auth not set correctly")
 	}
 
-	if config.LibratoEmail != "" && config.LibratoToken != "" && config.LibratoSource != "" {
+	if config.LibratoEmail != "" && config.LibratoToken != "" {
 		log.Println("fn=main metircs=librato")
 		go librato.Librato(metrics.DefaultRegistry,
 			10e9,                  // interval
