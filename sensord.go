@@ -12,6 +12,8 @@ import (
 	"github.com/abbot/go-http-auth"
 	"github.com/andelf/go-curl"
 	"github.com/nu7hatch/gouuid"
+	"github.com/rcrowley/go-metrics"
+	"github.com/rcrowley/go-metrics/librato"
 )
 
 var config Config
@@ -24,6 +26,10 @@ type Config struct {
 	Location          string
 	ChecksURL         string
 	MeasurerCount     int
+	LibratoEmail      string
+	LibratoToken      string
+	ToMeasurerTimer   metrics.Timer
+	ToStreamerTimer   metrics.Timer
 }
 
 type Check struct {
@@ -113,7 +119,7 @@ func measurer(config Config, toMeasurer chan Check, toStreamer chan Measurement)
 		c := <-toMeasurer
 		m := c.Measure(config)
 
-		toStreamer <- m
+		config.ToStreamerTimer.Time(func() { toStreamer <- m })
 	}
 }
 
@@ -174,9 +180,9 @@ func getChecks(config Config) []Check {
 	return checks
 }
 
-func scheduler(check Check, toMeasurer chan Check) {
+func scheduler(config Config, check Check, toMeasurer chan Check) {
 	for {
-		toMeasurer <- check
+		config.ToMeasurerTimer.Time(func() { toMeasurer <- check })
 		time.Sleep(1000 * time.Millisecond)
 	}
 }
@@ -189,6 +195,15 @@ func init() {
 	flag.StringVar(&config.Location, "location", "undefined", "location of this sensor")
 	flag.StringVar(&config.ChecksURL, "checks_url", "https://s3.amazonaws.com/canary-public-data/checks.json", "URL for check data")
 	flag.IntVar(&config.MeasurerCount, "measurer_count", 1, "number of measurers to run")
+
+	config.LibratoEmail = os.Getenv("LIBRATO_EMAIL")
+	config.LibratoToken = os.Getenv("LIBRATO_TOKEN")
+
+	config.ToMeasurerTimer = metrics.NewTimer()
+	metrics.Register("sensord.to_measurer", config.ToMeasurerTimer)
+
+	config.ToStreamerTimer = metrics.NewTimer()
+	metrics.Register("sensord.to_streamer", config.ToStreamerTimer)
 }
 
 func main() {
@@ -198,6 +213,18 @@ func main() {
 		log.Fatal("fatal - HTTP basic auth not set correctly")
 	}
 
+	if config.LibratoEmail != "" && config.LibratoToken != "" {
+		log.Println("fn=main metircs=librato")
+		go librato.Librato(metrics.DefaultRegistry,
+			10e9,                  // interval
+			config.LibratoEmail,   // account owner email address
+			config.LibratoToken,   // Librato API token
+			config.Location,       // source
+			[]float64{50, 95, 99}, // precentiles to send
+			time.Millisecond,      // time unit
+		)
+	}
+
 	checkList := getChecks(config)
 
 	toMeasurer := make(chan Check)
@@ -205,7 +232,7 @@ func main() {
 
 	// spawn one scheduler per check
 	for _, c := range checkList {
-		go scheduler(c, toMeasurer)
+		go scheduler(config, c, toMeasurer)
 	}
 
 	// spawn N measurers
