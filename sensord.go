@@ -19,17 +19,19 @@ import (
 var config Config
 
 type Config struct {
-	HTTPBasicUsername string
-	HTTPBasicPassword string
-	HTTPBasicRealm    string
-	Port              string
-	Location          string
-	ChecksURL         string
-	MeasurerCount     int
-	LibratoEmail      string
-	LibratoToken      string
-	ToMeasurerTimer   metrics.Timer
-	ToStreamerTimer   metrics.Timer
+	HTTPBasicUsername  string
+	HTTPBasicPassword  string
+	HTTPBasicRealm     string
+	Port               string
+	Location           string
+	ChecksURL          string
+	MeasurerCount      int
+	LibratoEmail       string
+	LibratoToken       string
+	ToMeasurerTimer    metrics.Timer
+	ToStreamerTimer    metrics.Timer
+	MeasurementCounter metrics.Counter
+	StreamCounter      metrics.Counter
 }
 
 type Check struct {
@@ -118,7 +120,7 @@ func measurer(config Config, toMeasurer chan Check, toStreamer chan Measurement)
 	for {
 		c := <-toMeasurer
 		m := c.Measure(config)
-
+		config.MeasurementCounter.Inc(1)
 		config.ToStreamerTimer.Time(func() { toStreamer <- m })
 	}
 }
@@ -143,6 +145,7 @@ func streamer(config Config, toStreamer chan Measurement) {
 			if f, ok := w.(http.Flusher); ok {
 				f.Flush()
 			}
+			config.StreamCounter.Inc(1)
 		}
 	}
 
@@ -204,6 +207,12 @@ func init() {
 
 	config.ToStreamerTimer = metrics.NewTimer()
 	metrics.Register("sensord.to_streamer", config.ToStreamerTimer)
+
+	config.MeasurementCounter = metrics.NewCounter()
+	metrics.Register("sensord.measurements", config.MeasurementCounter)
+
+	config.StreamCounter = metrics.NewCounter()
+	metrics.Register("sensord.stream", config.StreamCounter)
 }
 
 func main() {
