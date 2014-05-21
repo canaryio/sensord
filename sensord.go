@@ -5,33 +5,32 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
-	"github.com/abbot/go-http-auth"
 	"github.com/andelf/go-curl"
 	"github.com/nu7hatch/gouuid"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/librato"
+	"github.com/vmihailenco/msgpack"
 )
 
 var config Config
 
 type Config struct {
-	HTTPBasicUsername  string
-	HTTPBasicPassword  string
-	HTTPBasicRealm     string
-	Port               string
 	Location           string
+	Targets            []string
 	ChecksURL          string
 	MeasurerCount      int
 	LibratoEmail       string
 	LibratoToken       string
 	ToMeasurerTimer    metrics.Timer
-	ToStreamerTimer    metrics.Timer
+	ToPusherTimer      metrics.Timer
 	MeasurementCounter metrics.Counter
-	StreamCounter      metrics.Counter
+	PushCounter        metrics.Counter
 }
 
 type Check struct {
@@ -116,47 +115,54 @@ func (c *Check) Measure(config Config) Measurement {
 	return m
 }
 
-func measurer(config Config, toMeasurer chan Check, toStreamer chan Measurement) {
+func measurer(config Config, toMeasurer chan Check, toPusher chan Measurement) {
 	for {
 		c := <-toMeasurer
 		m := c.Measure(config)
 		config.MeasurementCounter.Inc(1)
-		config.ToStreamerTimer.Time(func() { toStreamer <- m })
+		config.ToPusherTimer.Time(func() { toPusher <- m })
 	}
 }
 
-func streamer(config Config, toStreamer chan Measurement) {
-	a := func(user, realm string) string {
-		if user == config.HTTPBasicUsername {
-			return config.HTTPBasicPassword
-		}
-		return ""
+// listens for measurements on c, pushes them over UDP to addr
+func udpPusher(addr string, c chan Measurement) {
+	serverAddr, err := net.ResolveUDPAddr("udp", addr)
+	if err != nil {
+		panic(err)
 	}
 
-	h := func(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
-		w.Header().Set("Content-Type", "application/json")
-		enc := json.NewEncoder(w)
-		for {
-			err := enc.Encode(<-toStreamer)
-			if err != nil {
-				return
-			}
-
-			if f, ok := w.(http.Flusher); ok {
-				f.Flush()
-			}
-			config.StreamCounter.Inc(1)
-		}
-	}
-
-	authenticator := auth.NewBasicAuthenticator(config.HTTPBasicRealm, a)
-
-	http.HandleFunc("/measurements", authenticator.Wrap(h))
-
-	log.Printf("fn=streamer listening=true port=%s\n", config.Port)
-	err := http.ListenAndServe(":"+config.Port, nil)
+	con, err := net.DialUDP("udp", nil, serverAddr)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	log.Printf("fn=udpPusher endpoint=%s\n", addr)
+
+	for {
+		m := <-c
+		payload, err := msgpack.Marshal(m)
+		if err != nil {
+			log.Fatal(err)
+		}
+		con.Write(payload)
+	}
+}
+
+// listens for measurements on toPusher, fans them out to 1 or more addrs
+func pusher(addrs []string, toPusher chan Measurement) {
+	var chans []chan Measurement
+	for _, addr := range addrs {
+		c := make(chan Measurement)
+		chans = append(chans, c)
+		go udpPusher(addr, c)
+	}
+
+	for {
+		m := <-toPusher
+		for _, c := range chans {
+			c <- m
+		}
+		config.PushCounter.Inc(1)
 	}
 }
 
@@ -191,13 +197,11 @@ func scheduler(config Config, check Check, toMeasurer chan Check) {
 }
 
 func init() {
-	flag.StringVar(&config.HTTPBasicUsername, "http_basic_username", "", "HTTP basic authentication username")
-	flag.StringVar(&config.HTTPBasicPassword, "http_basic_password", "", "HTTP basic authentication password")
-	flag.StringVar(&config.HTTPBasicRealm, "http_basic_realm", "", "HTTP basic authentication realm")
-	flag.StringVar(&config.Port, "port", "5000", "port the HTTP server should listen on")
 	flag.StringVar(&config.Location, "location", "undefined", "location of this sensor")
 	flag.StringVar(&config.ChecksURL, "checks_url", "https://s3.amazonaws.com/canary-public-data/checks.json", "URL for check data")
 	flag.IntVar(&config.MeasurerCount, "measurer_count", 1, "number of measurers to run")
+
+	config.Targets = strings.Split(os.Getenv("TARGETS"), ",")
 
 	config.LibratoEmail = os.Getenv("LIBRATO_EMAIL")
 	config.LibratoToken = os.Getenv("LIBRATO_TOKEN")
@@ -205,22 +209,18 @@ func init() {
 	config.ToMeasurerTimer = metrics.NewTimer()
 	metrics.Register("sensord.to_measurer", config.ToMeasurerTimer)
 
-	config.ToStreamerTimer = metrics.NewTimer()
-	metrics.Register("sensord.to_streamer", config.ToStreamerTimer)
+	config.ToPusherTimer = metrics.NewTimer()
+	metrics.Register("sensord.to_pusher", config.ToPusherTimer)
 
 	config.MeasurementCounter = metrics.NewCounter()
 	metrics.Register("sensord.measurements", config.MeasurementCounter)
 
-	config.StreamCounter = metrics.NewCounter()
-	metrics.Register("sensord.stream", config.StreamCounter)
+	config.PushCounter = metrics.NewCounter()
+	metrics.Register("sensord.push", config.PushCounter)
 }
 
 func main() {
 	flag.Parse()
-
-	if len(config.HTTPBasicUsername) == 0 && len(config.HTTPBasicPassword) == 0 {
-		log.Fatal("fatal - HTTP basic auth not set correctly")
-	}
 
 	if config.LibratoEmail != "" && config.LibratoToken != "" {
 		log.Println("fn=main metircs=librato")
@@ -237,7 +237,7 @@ func main() {
 	checkList := getChecks(config)
 
 	toMeasurer := make(chan Check)
-	toStreamer := make(chan Measurement)
+	toPusher := make(chan Measurement)
 
 	// spawn one scheduler per check
 	for _, c := range checkList {
@@ -246,11 +246,11 @@ func main() {
 
 	// spawn N measurers
 	for i := 0; i < config.MeasurerCount; i++ {
-		go measurer(config, toMeasurer, toStreamer)
+		go measurer(config, toMeasurer, toPusher)
 	}
 
-	// stream measurements to clients over HTTP
-	go streamer(config, toStreamer)
+	// emit measurements to targets via UDP
+	go pusher(config.Targets, toPusher)
 
 	select {}
 }
