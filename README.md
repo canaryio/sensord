@@ -16,29 +16,17 @@ $ godep go build
 
 ## Configuration
 
-Check the local help for options:
+`sensord` is configured via the environment.  The following values are allowed:
 
-```sh
-$ ./sensord -h
-Usage of ./sensord:
-  -checks_url="https://s3.amazonaws.com/canary-public-data/checks.json": URL for check data
-  -location="undefined": location of this sensor
-  -measurer_count=1: number of measurers to run
-```
+* `CHECKS_URL` - location of checks data, defaults to https://s3.amazonaws.com/canary-public-data/checks.json
+* `TARGETS` - comma separated list of host:port pairs to send measurements to
+* `LOCATION` - name of this location, defaults to 'undefined'
+* `MEASURER_COUNT` - number of measurers to run. Defaults to '1'
 
-Measurement destinations can be configured via the environment:
+`sensord` allows operational metrics to be sent to Librato. You can enable this by configured the following environment variables:
 
-```
-export TARGETS=host1.example.com:5000,host2.example.com:1310
-```
-
-`sensord` allows operational metrics to be sent to Librato.  You can configure with the following environment variables:
-
-```
-export LIBRATO_EMAIL=me@mydomain.com
-export LIBRATO_TOKEN=asdf
-export LIBRATO_SOURCE=my_hostname
-```
+* `LIBRATO_EMAIL` - email address of your librato account
+* `LIBRATO_TOKEN` - token for your Librato account
 
 ## Usage Example
 
