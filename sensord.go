@@ -2,12 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +25,7 @@ type Config struct {
 	Targets            []string
 	ChecksURL          string
 	MeasurerCount      int
+	MaxMeasurers       int
 	LibratoEmail       string
 	LibratoToken       string
 	ToMeasurerTimer    metrics.Timer
@@ -196,10 +197,24 @@ func scheduler(config Config, check Check, toMeasurer chan Check) {
 	}
 }
 
+func getEnvWithDefault(name, def string) string {
+	val := os.Getenv(name)
+	if val != "" {
+		return val
+	}
+
+	return def
+}
+
 func init() {
-	flag.StringVar(&config.Location, "location", "undefined", "location of this sensor")
-	flag.StringVar(&config.ChecksURL, "checks_url", "https://s3.amazonaws.com/canary-public-data/checks.json", "URL for check data")
-	flag.IntVar(&config.MeasurerCount, "measurer_count", 1, "number of measurers to run")
+	config.Location = getEnvWithDefault("LOCATION", "undefined")
+	config.ChecksURL = getEnvWithDefault("CHECKS_URL", "https://s3.amazonaws.com/canary-public-data/checks.json")
+
+	measurer_count, err := strconv.Atoi(getEnvWithDefault("MEASURER_COUNT", "1"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	config.MeasurerCount = measurer_count
 
 	config.Targets = strings.Split(os.Getenv("TARGETS"), ",")
 
@@ -220,8 +235,6 @@ func init() {
 }
 
 func main() {
-	flag.Parse()
-
 	if config.LibratoEmail != "" && config.LibratoToken != "" {
 		log.Println("fn=main metircs=librato")
 		go librato.Librato(metrics.DefaultRegistry,
