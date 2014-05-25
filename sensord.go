@@ -117,8 +117,7 @@ func (c *Check) Measure(config Config) Measurement {
 }
 
 func measurer(config Config, toMeasurer chan Check, toPusher chan Measurement) {
-	for {
-		c := <-toMeasurer
+	for c := range toMeasurer {
 		m := c.Measure(config)
 		config.MeasurementCounter.Inc(1)
 		config.ToPusherTimer.Time(func() { toPusher <- m })
@@ -139,8 +138,7 @@ func udpPusher(addr string, c chan Measurement) {
 
 	log.Printf("fn=udpPusher endpoint=%s\n", addr)
 
-	for {
-		m := <-c
+	for m := range c {
 		payload, err := msgpack.Marshal(m)
 		if err != nil {
 			log.Fatal(err)
@@ -158,8 +156,7 @@ func pusher(addrs []string, toPusher chan Measurement) {
 		go udpPusher(addr, c)
 	}
 
-	for {
-		m := <-toPusher
+	for m := range toPusher {
 		for _, c := range chans {
 			c <- m
 		}
