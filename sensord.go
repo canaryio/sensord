@@ -28,6 +28,7 @@ type Config struct {
 	MaxMeasurers       int
 	LibratoEmail       string
 	LibratoToken       string
+	LogStderr          bool
 	ToMeasurerTimer    metrics.Timer
 	ToPusherTimer      metrics.Timer
 	MeasurementCounter metrics.Counter
@@ -218,6 +219,10 @@ func init() {
 	config.LibratoEmail = os.Getenv("LIBRATO_EMAIL")
 	config.LibratoToken = os.Getenv("LIBRATO_TOKEN")
 
+	if os.Getenv("LOGSTDERR") == "1" {
+		config.LogStderr = true
+	}
+
 	config.ToMeasurerTimer = metrics.NewTimer()
 	metrics.Register("sensord.to_measurer", config.ToMeasurerTimer)
 
@@ -242,6 +247,10 @@ func main() {
 			[]float64{50, 95, 99}, // precentiles to send
 			time.Millisecond,      // time unit
 		)
+	}
+
+	if config.LogStderr == true {
+		go metrics.Log(metrics.DefaultRegistry, 10e9, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
 	}
 
 	checkList := getChecks(config)
