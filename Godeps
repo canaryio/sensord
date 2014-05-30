@@ -8,6 +8,10 @@
 			"Rev": "ebc47f9349f283fa620963e63c85348d0817f523"
 		},
 		{
+			"ImportPath": "github.com/influxdb/influxdb-go",
+			"Rev": "63c9a5f67dcb633d05164bf8442160c9e2e402f7"
+		},
+		{
 			"ImportPath": "github.com/nu7hatch/gouuid",
 			"Rev": "179d4d0c4d8d407a32af483c2354df1d2c91e6c3"
 		},
