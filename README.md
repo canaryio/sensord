@@ -22,6 +22,7 @@ $ godep go build
 * `TARGETS` - comma separated list of host:port pairs to send measurements to
 * `LOCATION` - name of this location, defaults to 'undefined'
 * `MEASURER_COUNT` - number of measurers to run. Defaults to '1'
+* `CHECK_PERIOD` - delay between checks, in ms. Defaults to '1000' (1 second)
 
 `sensord` allows operational metrics to be sent to Librato. You can enable this by configured the following environment variables:
 

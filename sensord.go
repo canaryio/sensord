@@ -33,6 +33,7 @@ type Config struct {
 	ToPusherTimer      metrics.Timer
 	MeasurementCounter metrics.Counter
 	PushCounter        metrics.Counter
+	CheckPeriod		   time.Duration
 }
 
 type Check struct {
@@ -191,7 +192,7 @@ func getChecks(config Config) []Check {
 func scheduler(config Config, check Check, toMeasurer chan Check) {
 	for {
 		config.ToMeasurerTimer.Time(func() { toMeasurer <- check })
-		time.Sleep(1000 * time.Millisecond)
+		time.Sleep(config.CheckPeriod * time.Millisecond)
 	}
 }
 
@@ -213,6 +214,12 @@ func init() {
 		log.Fatal(err)
 	}
 	config.MeasurerCount = measurer_count
+
+	check_period, err := strconv.Atoi(getEnvWithDefault("CHECK_PERIOD", "1000"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	config.CheckPeriod = time.Duration(check_period)
 
 	config.Targets = strings.Split(os.Getenv("TARGETS"), ",")
 
