@@ -28,6 +28,8 @@ $ godep go build
 * `LIBRATO_EMAIL` - email address of your librato account
 * `LIBRATO_TOKEN` - token for your Librato account
 
+If you'd like to log metrics to `STDERR`, you can do so by setting `LOGSTDERR` to '1'.
+
 ## Usage Example
 
 ```sh
