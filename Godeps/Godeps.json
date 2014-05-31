@@ -4,8 +4,8 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/andelf/go-curl",
-			"Comment": "compatible-with-go-release.r60-52-gebc47f9",
-			"Rev": "ebc47f9349f283fa620963e63c85348d0817f523"
+			"Comment": "compatible-with-go-release.r60-56-g8ff69d4",
+			"Rev": "8ff69d4be61e417cc432604ad991fa5664d38384"
 		},
 		{
 			"ImportPath": "github.com/influxdb/influxdb-go",
