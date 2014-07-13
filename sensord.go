@@ -12,10 +12,11 @@ import (
 	"time"
 
 	"github.com/andelf/go-curl"
+	"github.com/canaryio/data"
 	"github.com/nu7hatch/gouuid"
 	"github.com/rcrowley/go-metrics"
-	"github.com/rcrowley/go-metrics/librato"
 	"github.com/rcrowley/go-metrics/influxdb"
+	"github.com/rcrowley/go-metrics/librato"
 	"github.com/vmihailenco/msgpack"
 )
 
@@ -38,42 +39,21 @@ type Config struct {
 	ToPusherTimer      metrics.Timer
 	MeasurementCounter metrics.Counter
 	PushCounter        metrics.Counter
-	CheckPeriod		   time.Duration
+	CheckPeriod        time.Duration
 }
 
-type Check struct {
-	ID  string `json:"id"`
-	URL string `json:"url"`
-}
-
-type Measurement struct {
-	Check             Check   `json:"check"`
-	ID                string  `json:"id"`
-	Location          string  `json:"location"`
-	T                 int     `json:"t"`
-	ExitStatus        int     `json:"exit_status"`
-	ConnectTime       float64 `json:"connect_time,omitempty"`
-	StartTransferTime float64 `json:"starttransfer_time,omitempty"`
-	LocalIP           string  `json:"local_ip,omitempty"`
-	PrimaryIP         string  `json:"primary_ip,omitempty"`
-	TotalTime         float64 `json:"total_time,omitempty"`
-	HTTPStatus        int     `json:"http_status,omitempty"`
-	NameLookupTime    float64 `json:"namelookup_time,omitempty"`
-	SizeDownload      float64 `json:"size_download,omitempty"`
-}
-
-func (c *Check) Measure(config Config) Measurement {
-	var m Measurement
+func Measure(check data.Check, config Config) data.Measurement {
+	var m data.Measurement
 
 	id, _ := uuid.NewV4()
 	m.ID = id.String()
-	m.Check = *c
+	m.Check = check
 	m.Location = config.Location
 
 	easy := curl.EasyInit()
 	defer easy.Cleanup()
 
-	easy.Setopt(curl.OPT_URL, c.URL)
+	easy.Setopt(curl.OPT_URL, check.URL)
 
 	// dummy func for curl output
 	noOut := func(buf []byte, userdata interface{}) bool {
@@ -123,16 +103,16 @@ func (c *Check) Measure(config Config) Measurement {
 	return m
 }
 
-func measurer(config Config, toMeasurer chan Check, toPusher chan Measurement) {
+func measurer(config Config, toMeasurer chan data.Check, toPusher chan data.Measurement) {
 	for c := range toMeasurer {
-		m := c.Measure(config)
+		m := Measure(c, config)
 		config.MeasurementCounter.Inc(1)
 		config.ToPusherTimer.Time(func() { toPusher <- m })
 	}
 }
 
 // listens for measurements on c, pushes them over UDP to addr
-func udpPusher(addr string, c chan Measurement) {
+func udpPusher(addr string, c chan data.Measurement) {
 	serverAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		panic(err)
@@ -155,10 +135,10 @@ func udpPusher(addr string, c chan Measurement) {
 }
 
 // listens for measurements on toPusher, fans them out to 1 or more addrs
-func pusher(addrs []string, toPusher chan Measurement) {
-	var chans []chan Measurement
+func pusher(addrs []string, toPusher chan data.Measurement) {
+	var chans []chan data.Measurement
 	for _, addr := range addrs {
-		c := make(chan Measurement)
+		c := make(chan data.Measurement)
 		chans = append(chans, c)
 		go udpPusher(addr, c)
 	}
@@ -171,7 +151,7 @@ func pusher(addrs []string, toPusher chan Measurement) {
 	}
 }
 
-func getChecks(config Config) []Check {
+func getChecks(config Config) []data.Check {
 	url := config.ChecksURL
 
 	res, err := http.Get(url)
@@ -185,7 +165,7 @@ func getChecks(config Config) []Check {
 		log.Fatal(err)
 	}
 
-	var checks []Check
+	var checks []data.Check
 	err = json.Unmarshal(body, &checks)
 	if err != nil {
 		log.Fatal(err)
@@ -194,7 +174,7 @@ func getChecks(config Config) []Check {
 	return checks
 }
 
-func scheduler(config Config, check Check, toMeasurer chan Check) {
+func scheduler(config Config, check data.Check, toMeasurer chan data.Check) {
 	for {
 		config.ToMeasurerTimer.Time(func() { toMeasurer <- check })
 		time.Sleep(config.CheckPeriod * time.Millisecond)
@@ -231,9 +211,9 @@ func init() {
 	config.LibratoEmail = os.Getenv("LIBRATO_EMAIL")
 	config.LibratoToken = os.Getenv("LIBRATO_TOKEN")
 
-	config.InfluxdbHost     = os.Getenv("INFLUXDB_HOST")
+	config.InfluxdbHost = os.Getenv("INFLUXDB_HOST")
 	config.InfluxdbDatabase = os.Getenv("INFLUXDB_DATABASE")
-	config.InfluxdbUser     = os.Getenv("INFLUXDB_USER")
+	config.InfluxdbUser = os.Getenv("INFLUXDB_USER")
 	config.InfluxdbPassword = os.Getenv("INFLUXDB_PASSWORD")
 
 	if os.Getenv("LOGSTDERR") == "1" {
@@ -265,11 +245,11 @@ func main() {
 			time.Millisecond,      // time unit
 		)
 	}
-	
+
 	if config.InfluxdbHost != "" &&
-	   config.InfluxdbDatabase != "" &&
-	   config.InfluxdbUser != "" &&
-	   config.InfluxdbPassword != "" {
+		config.InfluxdbDatabase != "" &&
+		config.InfluxdbUser != "" &&
+		config.InfluxdbPassword != "" {
 		log.Println("fn=main metrics=influxdb")
 
 		go influxdb.Influxdb(metrics.DefaultRegistry, 10e9, &influxdb.Config{
@@ -279,15 +259,15 @@ func main() {
 			Password: config.InfluxdbPassword,
 		})
 	}
-	
+
 	if config.LogStderr == true {
 		go metrics.Log(metrics.DefaultRegistry, 10e9, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
 	}
 
 	checkList := getChecks(config)
 
-	toMeasurer := make(chan Check)
-	toPusher := make(chan Measurement)
+	toMeasurer := make(chan data.Check)
+	toPusher := make(chan data.Measurement)
 
 	// spawn one scheduler per check
 	for _, c := range checkList {
