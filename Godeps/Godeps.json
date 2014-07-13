@@ -1,11 +1,16 @@
 {
 	"ImportPath": "github.com/canaryio/sensord",
-	"GoVersion": "go1.2.1",
+	"GoVersion": "go1.3",
 	"Deps": [
 		{
 			"ImportPath": "github.com/andelf/go-curl",
 			"Comment": "compatible-with-go-release.r60-56-g8ff69d4",
 			"Rev": "8ff69d4be61e417cc432604ad991fa5664d38384"
+		},
+		{
+			"ImportPath": "github.com/canaryio/data",
+			"Comment": "v0.1.0-4-g91ecc53",
+			"Rev": "91ecc530a2b14b8c771693c829e863392f8ae62f"
 		},
 		{
 			"ImportPath": "github.com/influxdb/influxdb-go",
@@ -18,6 +23,10 @@
 		{
 			"ImportPath": "github.com/rcrowley/go-metrics",
 			"Rev": "6ffbdf30ba7072d9f9e2afe57ad651a75a544a83"
+		},
+		{
+			"ImportPath": "github.com/stretchr/testify/assert",
+			"Rev": "410219ae829b24af99a4d48a79858f23d0be42ee"
 		},
 		{
 			"ImportPath": "github.com/vmihailenco/bufio",
