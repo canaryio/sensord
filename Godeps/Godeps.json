@@ -13,8 +13,8 @@
 			"Rev": "c59873feb9616005a48ef5e914b26e46aaf9a1c6"
 		},
 		{
-			"ImportPath": "github.com/canaryio/measurements",
-			"Rev": "a5e0f240cb7f5c48fed34f27dee1eef870beb3c5"
+			"ImportPath": "github.com/canaryio/measurement",
+			"Rev": "c4f5264442076fda0f16976f7eaf878d74408ddc"
 		},
 		{
 			"ImportPath": "github.com/influxdb/influxdb-go",
