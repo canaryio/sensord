@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/canaryio/data"
-	"github.com/canaryio/measurement"
+	"github.com/canaryio/measure"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/influxdb"
 	"github.com/rcrowley/go-metrics/librato"
@@ -42,7 +42,7 @@ type Config struct {
 }
 
 func measurer(config Config, toMeasurer chan data.Check, toPusher chan data.Measurement) {
-	client := measurement.NewClient(config.Location)
+	client := measure.NewClient(config.Location)
 	for c := range toMeasurer {
 		m := client.Measure(&c)
 		config.MeasurementCounter.Inc(1)
