@@ -11,9 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/andelf/go-curl"
 	"github.com/canaryio/data"
-	"github.com/nu7hatch/gouuid"
+	"github.com/canaryio/measurements"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/influxdb"
 	"github.com/rcrowley/go-metrics/librato"
@@ -42,72 +41,12 @@ type Config struct {
 	CheckPeriod        time.Duration
 }
 
-func Measure(check data.Check, config Config) data.Measurement {
-	var m data.Measurement
-
-	id, _ := uuid.NewV4()
-	m.ID = id.String()
-	m.Check = check
-	m.Location = config.Location
-
-	easy := curl.EasyInit()
-	defer easy.Cleanup()
-
-	easy.Setopt(curl.OPT_URL, check.URL)
-
-	// dummy func for curl output
-	noOut := func(buf []byte, userdata interface{}) bool {
-		return true
-	}
-
-	easy.Setopt(curl.OPT_WRITEFUNCTION, noOut)
-	easy.Setopt(curl.OPT_CONNECTTIMEOUT, 10)
-	easy.Setopt(curl.OPT_TIMEOUT, 10)
-
-	now := time.Now()
-	m.T = int(now.Unix())
-
-	if err := easy.Perform(); err != nil {
-		if e, ok := err.(curl.CurlError); ok {
-			m.ExitStatus = (int(e))
-			return m
-		}
-		os.Exit(1)
-	}
-
-	m.ExitStatus = 0
-	httpStatus, _ := easy.Getinfo(curl.INFO_RESPONSE_CODE)
-	m.HTTPStatus = httpStatus.(int)
-
-	connectTime, _ := easy.Getinfo(curl.INFO_CONNECT_TIME)
-	m.ConnectTime = connectTime.(float64)
-
-	namelookupTime, _ := easy.Getinfo(curl.INFO_NAMELOOKUP_TIME)
-	m.NameLookupTime = namelookupTime.(float64)
-
-	starttransferTime, _ := easy.Getinfo(curl.INFO_STARTTRANSFER_TIME)
-	m.StartTransferTime = starttransferTime.(float64)
-
-	totalTime, _ := easy.Getinfo(curl.INFO_TOTAL_TIME)
-	m.TotalTime = totalTime.(float64)
-
-	localIP, _ := easy.Getinfo(curl.INFO_LOCAL_IP)
-	m.LocalIP = localIP.(string)
-
-	primaryIP, _ := easy.Getinfo(curl.INFO_PRIMARY_IP)
-	m.PrimaryIP = primaryIP.(string)
-
-	sizeDownload, _ := easy.Getinfo(curl.INFO_SIZE_DOWNLOAD)
-	m.SizeDownload = sizeDownload.(float64)
-
-	return m
-}
-
 func measurer(config Config, toMeasurer chan data.Check, toPusher chan data.Measurement) {
+	client := measurements.NewClient(config.Location)
 	for c := range toMeasurer {
-		m := Measure(c, config)
+		m := client.Measure(&c)
 		config.MeasurementCounter.Inc(1)
-		config.ToPusherTimer.Time(func() { toPusher <- m })
+		config.ToPusherTimer.Time(func() { toPusher <- *m })
 	}
 }
 
