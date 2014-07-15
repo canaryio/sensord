@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/canaryio/data"
-	"github.com/canaryio/measure"
+	"github.com/canaryio/measure/curl"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/influxdb"
 	"github.com/rcrowley/go-metrics/librato"
@@ -42,9 +42,12 @@ type Config struct {
 }
 
 func measurer(config Config, toMeasurer chan data.Check, toPusher chan data.Measurement) {
-	client := measure.NewClient(config.Location)
+	client := curl.NewMeasurer(config.Location)
 	for c := range toMeasurer {
-		m := client.Measure(&c)
+		m, err := client.Measure(&c)
+		if err != nil {
+			log.Fatal(err)
+		}
 		config.MeasurementCounter.Inc(1)
 		config.ToPusherTimer.Time(func() { toPusher <- *m })
 	}

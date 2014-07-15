@@ -14,7 +14,8 @@
 		},
 		{
 			"ImportPath": "github.com/canaryio/measure",
-			"Rev": "379ecb2af6fb07f96091f73b977e3842239aac30"
+			"Comment": "v2.0.0",
+			"Rev": "7611b3f160bf91b050471d945ed4a8298f895765"
 		},
 		{
 			"ImportPath": "github.com/influxdb/influxdb-go",
