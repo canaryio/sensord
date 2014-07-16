@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/canaryio/data"
-	"github.com/canaryio/measure/curl"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/influxdb"
 	"github.com/rcrowley/go-metrics/librato"
 	"github.com/vmihailenco/msgpack"
+	"gopkg.in/canaryio/measure.v3/curl"
 )
 
 var config Config
@@ -41,20 +41,8 @@ type Config struct {
 	CheckPeriod        time.Duration
 }
 
-func measurer(config Config, toMeasurer chan data.Check, toPusher chan data.Measurement) {
-	client := curl.NewMeasurer(config.Location)
-	for c := range toMeasurer {
-		m, err := client.Measure(&c)
-		if err != nil {
-			log.Fatal(err)
-		}
-		config.MeasurementCounter.Inc(1)
-		config.ToPusherTimer.Time(func() { toPusher <- *m })
-	}
-}
-
 // listens for measurements on c, pushes them over UDP to addr
-func udpPusher(addr string, c chan data.Measurement) {
+func udpPusher(addr string, c chan *data.Measurement) {
 	serverAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		panic(err)
@@ -77,10 +65,10 @@ func udpPusher(addr string, c chan data.Measurement) {
 }
 
 // listens for measurements on toPusher, fans them out to 1 or more addrs
-func pusher(addrs []string, toPusher chan data.Measurement) {
-	var chans []chan data.Measurement
+func pusher(addrs []string, toPusher chan *data.Measurement) {
+	var chans []chan *data.Measurement
 	for _, addr := range addrs {
-		c := make(chan data.Measurement)
+		c := make(chan *data.Measurement)
 		chans = append(chans, c)
 		go udpPusher(addr, c)
 	}
@@ -116,9 +104,10 @@ func getChecks(config Config) []data.Check {
 	return checks
 }
 
-func scheduler(config Config, check data.Check, toMeasurer chan data.Check) {
+func scheduler(config Config, check *data.Check, measurer *curl.Measurer, toPusher chan *data.Measurement) {
 	for {
-		config.ToMeasurerTimer.Time(func() { toMeasurer <- check })
+		m, _ := measurer.Measure(check)
+		config.ToMeasurerTimer.Time(func() { toPusher <- m })
 		time.Sleep(config.CheckPeriod * time.Millisecond)
 	}
 }
@@ -208,17 +197,13 @@ func main() {
 
 	checkList := getChecks(config)
 
-	toMeasurer := make(chan data.Check)
-	toPusher := make(chan data.Measurement)
+	toPusher := make(chan *data.Measurement)
+
+	measurer := curl.NewMeasurer(config.Location, config.MeasurerCount)
 
 	// spawn one scheduler per check
 	for _, c := range checkList {
-		go scheduler(config, c, toMeasurer)
-	}
-
-	// spawn N measurers
-	for i := 0; i < config.MeasurerCount; i++ {
-		go measurer(config, toMeasurer, toPusher)
+		go scheduler(config, &c, measurer, toPusher)
 	}
 
 	// emit measurements to targets via UDP
