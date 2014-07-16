@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/canaryio/data"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/influxdb"
 	"github.com/rcrowley/go-metrics/librato"
 	"github.com/vmihailenco/msgpack"
+	"gopkg.in/canaryio/data.v2"
 	"gopkg.in/canaryio/measure.v3/curl"
 )
 
