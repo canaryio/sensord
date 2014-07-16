@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/canaryio/data"
-	"github.com/canaryio/measure/curl"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/influxdb"
 	"github.com/rcrowley/go-metrics/librato"
 	"github.com/vmihailenco/msgpack"
+	"gopkg.in/canaryio/measure.v3/curl"
 )
 
 var config Config

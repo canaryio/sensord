@@ -13,11 +13,6 @@
 			"Rev": "c59873feb9616005a48ef5e914b26e46aaf9a1c6"
 		},
 		{
-			"ImportPath": "github.com/canaryio/measure/curl",
-			"Comment": "v3.0.0",
-			"Rev": "3850818e3d793f0d338ad4e74ba017efe8005d8e"
-		},
-		{
 			"ImportPath": "github.com/influxdb/influxdb-go",
 			"Rev": "63c9a5f67dcb633d05164bf8442160c9e2e402f7"
 		},
@@ -40,6 +35,11 @@
 		{
 			"ImportPath": "github.com/vmihailenco/msgpack",
 			"Rev": "20c1b88a6c7fc5432037439f4e8c582e236fb205"
+		},
+		{
+			"ImportPath": "gopkg.in/canaryio/measure.v3/curl",
+			"Comment": "v3.0.0",
+			"Rev": "3850818e3d793f0d338ad4e74ba017efe8005d8e"
 		}
 	]
 }
