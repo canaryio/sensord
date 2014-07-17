@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rcrowley/go-metrics"
-	"github.com/rcrowley/go-metrics/influxdb"
-	"github.com/rcrowley/go-metrics/librato"
-	"github.com/vmihailenco/msgpack"
-	"gopkg.in/canaryio/data.v2"
-	"gopkg.in/canaryio/measure.v3/curl"
+	"github.com/canaryio/sensord/Godeps/_workspace/src/github.com/rcrowley/go-metrics"
+	"github.com/canaryio/sensord/Godeps/_workspace/src/github.com/rcrowley/go-metrics/influxdb"
+	"github.com/canaryio/sensord/Godeps/_workspace/src/github.com/rcrowley/go-metrics/librato"
+	"github.com/canaryio/sensord/Godeps/_workspace/src/github.com/vmihailenco/msgpack"
+	"github.com/canaryio/sensord/Godeps/_workspace/src/gopkg.in/canaryio/data.v2"
+	"github.com/canaryio/sensord/Godeps/_workspace/src/gopkg.in/canaryio/measure.v3/curl"
 )
 
 var config Config
