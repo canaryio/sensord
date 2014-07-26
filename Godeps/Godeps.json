@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/canaryio/sensord",
-	"GoVersion": "go1.3",
+	"GoVersion": "go1.2.1",
 	"Deps": [
 		{
 			"ImportPath": "github.com/andelf/go-curl",
@@ -20,26 +20,12 @@
 			"Rev": "6ffbdf30ba7072d9f9e2afe57ad651a75a544a83"
 		},
 		{
-			"ImportPath": "github.com/stretchr/testify/assert",
-			"Rev": "410219ae829b24af99a4d48a79858f23d0be42ee"
-		},
-		{
 			"ImportPath": "github.com/vmihailenco/bufio",
 			"Rev": "24e7e48f60fc2d9e99e43c07485d9fff42051e66"
 		},
 		{
 			"ImportPath": "github.com/vmihailenco/msgpack",
 			"Rev": "20c1b88a6c7fc5432037439f4e8c582e236fb205"
-		},
-		{
-			"ImportPath": "gopkg.in/canaryio/data.v2",
-			"Comment": "v2.0.1",
-			"Rev": "c59873feb9616005a48ef5e914b26e46aaf9a1c6"
-		},
-		{
-			"ImportPath": "gopkg.in/canaryio/measure.v3/curl",
-			"Comment": "v3.0.1",
-			"Rev": "39e4bc7124bb31fdef100273dac283639181b352"
 		}
 	]
 }

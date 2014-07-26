@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/andelf/go-curl"
+	"github.com/nu7hatch/gouuid"
 	"github.com/rcrowley/go-metrics"
-	"github.com/rcrowley/go-metrics/influxdb"
 	"github.com/rcrowley/go-metrics/librato"
+	"github.com/rcrowley/go-metrics/influxdb"
 	"github.com/vmihailenco/msgpack"
-	"gopkg.in/canaryio/data.v2"
-	"gopkg.in/canaryio/measure.v3/curl"
 )
 
 var config Config
@@ -38,11 +38,101 @@ type Config struct {
 	ToPusherTimer      metrics.Timer
 	MeasurementCounter metrics.Counter
 	PushCounter        metrics.Counter
-	CheckPeriod        time.Duration
+	CheckPeriod		   time.Duration
+}
+
+type Check struct {
+	ID  string `json:"id"`
+	URL string `json:"url"`
+}
+
+type Measurement struct {
+	Check             Check   `json:"check"`
+	ID                string  `json:"id"`
+	Location          string  `json:"location"`
+	T                 int     `json:"t"`
+	ExitStatus        int     `json:"exit_status"`
+	ConnectTime       float64 `json:"connect_time,omitempty"`
+	StartTransferTime float64 `json:"starttransfer_time,omitempty"`
+	LocalIP           string  `json:"local_ip,omitempty"`
+	PrimaryIP         string  `json:"primary_ip,omitempty"`
+	TotalTime         float64 `json:"total_time,omitempty"`
+	HTTPStatus        int     `json:"http_status,omitempty"`
+	NameLookupTime    float64 `json:"namelookup_time,omitempty"`
+	SizeDownload      float64 `json:"size_download,omitempty"`
+}
+
+func (c *Check) Measure(config Config) Measurement {
+	var m Measurement
+
+	id, _ := uuid.NewV4()
+	m.ID = id.String()
+	m.Check = *c
+	m.Location = config.Location
+
+	easy := curl.EasyInit()
+	defer easy.Cleanup()
+
+	easy.Setopt(curl.OPT_URL, c.URL)
+
+	// dummy func for curl output
+	noOut := func(buf []byte, userdata interface{}) bool {
+		return true
+	}
+
+	easy.Setopt(curl.OPT_WRITEFUNCTION, noOut)
+	easy.Setopt(curl.OPT_CONNECTTIMEOUT, 10)
+	easy.Setopt(curl.OPT_TIMEOUT, 10)
+
+	now := time.Now()
+	m.T = int(now.Unix())
+
+	if err := easy.Perform(); err != nil {
+		if e, ok := err.(curl.CurlError); ok {
+			m.ExitStatus = (int(e))
+			return m
+		}
+		os.Exit(1)
+	}
+
+	m.ExitStatus = 0
+	httpStatus, _ := easy.Getinfo(curl.INFO_RESPONSE_CODE)
+	m.HTTPStatus = httpStatus.(int)
+
+	connectTime, _ := easy.Getinfo(curl.INFO_CONNECT_TIME)
+	m.ConnectTime = connectTime.(float64)
+
+	namelookupTime, _ := easy.Getinfo(curl.INFO_NAMELOOKUP_TIME)
+	m.NameLookupTime = namelookupTime.(float64)
+
+	starttransferTime, _ := easy.Getinfo(curl.INFO_STARTTRANSFER_TIME)
+	m.StartTransferTime = starttransferTime.(float64)
+
+	totalTime, _ := easy.Getinfo(curl.INFO_TOTAL_TIME)
+	m.TotalTime = totalTime.(float64)
+
+	localIP, _ := easy.Getinfo(curl.INFO_LOCAL_IP)
+	m.LocalIP = localIP.(string)
+
+	primaryIP, _ := easy.Getinfo(curl.INFO_PRIMARY_IP)
+	m.PrimaryIP = primaryIP.(string)
+
+	sizeDownload, _ := easy.Getinfo(curl.INFO_SIZE_DOWNLOAD)
+	m.SizeDownload = sizeDownload.(float64)
+
+	return m
+}
+
+func measurer(config Config, toMeasurer chan Check, toPusher chan Measurement) {
+	for c := range toMeasurer {
+		m := c.Measure(config)
+		config.MeasurementCounter.Inc(1)
+		config.ToPusherTimer.Time(func() { toPusher <- m })
+	}
 }
 
 // listens for measurements on c, pushes them over UDP to addr
-func udpPusher(addr string, c chan *data.Measurement) {
+func udpPusher(addr string, c chan Measurement) {
 	serverAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		panic(err)
@@ -65,10 +155,10 @@ func udpPusher(addr string, c chan *data.Measurement) {
 }
 
 // listens for measurements on toPusher, fans them out to 1 or more addrs
-func pusher(addrs []string, toPusher chan *data.Measurement) {
-	var chans []chan *data.Measurement
+func pusher(addrs []string, toPusher chan Measurement) {
+	var chans []chan Measurement
 	for _, addr := range addrs {
-		c := make(chan *data.Measurement)
+		c := make(chan Measurement)
 		chans = append(chans, c)
 		go udpPusher(addr, c)
 	}
@@ -81,7 +171,7 @@ func pusher(addrs []string, toPusher chan *data.Measurement) {
 	}
 }
 
-func getChecks(config Config) []data.Check {
+func getChecks(config Config) []Check {
 	url := config.ChecksURL
 
 	res, err := http.Get(url)
@@ -95,7 +185,7 @@ func getChecks(config Config) []data.Check {
 		log.Fatal(err)
 	}
 
-	var checks []data.Check
+	var checks []Check
 	err = json.Unmarshal(body, &checks)
 	if err != nil {
 		log.Fatal(err)
@@ -104,10 +194,9 @@ func getChecks(config Config) []data.Check {
 	return checks
 }
 
-func scheduler(config Config, check *data.Check, measurer *curl.Measurer, toPusher chan *data.Measurement) {
+func scheduler(config Config, check Check, toMeasurer chan Check) {
 	for {
-		m, _ := measurer.Measure(check)
-		config.ToMeasurerTimer.Time(func() { toPusher <- m })
+		config.ToMeasurerTimer.Time(func() { toMeasurer <- check })
 		time.Sleep(config.CheckPeriod * time.Millisecond)
 	}
 }
@@ -142,9 +231,9 @@ func init() {
 	config.LibratoEmail = os.Getenv("LIBRATO_EMAIL")
 	config.LibratoToken = os.Getenv("LIBRATO_TOKEN")
 
-	config.InfluxdbHost = os.Getenv("INFLUXDB_HOST")
+	config.InfluxdbHost     = os.Getenv("INFLUXDB_HOST")
 	config.InfluxdbDatabase = os.Getenv("INFLUXDB_DATABASE")
-	config.InfluxdbUser = os.Getenv("INFLUXDB_USER")
+	config.InfluxdbUser     = os.Getenv("INFLUXDB_USER")
 	config.InfluxdbPassword = os.Getenv("INFLUXDB_PASSWORD")
 
 	if os.Getenv("LOGSTDERR") == "1" {
@@ -176,11 +265,11 @@ func main() {
 			time.Millisecond,      // time unit
 		)
 	}
-
+	
 	if config.InfluxdbHost != "" &&
-		config.InfluxdbDatabase != "" &&
-		config.InfluxdbUser != "" &&
-		config.InfluxdbPassword != "" {
+	   config.InfluxdbDatabase != "" &&
+	   config.InfluxdbUser != "" &&
+	   config.InfluxdbPassword != "" {
 		log.Println("fn=main metrics=influxdb")
 
 		go influxdb.Influxdb(metrics.DefaultRegistry, 10e9, &influxdb.Config{
@@ -190,20 +279,24 @@ func main() {
 			Password: config.InfluxdbPassword,
 		})
 	}
-
+	
 	if config.LogStderr == true {
 		go metrics.Log(metrics.DefaultRegistry, 10e9, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
 	}
 
 	checkList := getChecks(config)
 
-	toPusher := make(chan *data.Measurement)
-
-	measurer := curl.NewMeasurer(config.Location, config.MeasurerCount)
+	toMeasurer := make(chan Check)
+	toPusher := make(chan Measurement)
 
 	// spawn one scheduler per check
 	for _, c := range checkList {
-		go scheduler(config, &c, measurer, toPusher)
+		go scheduler(config, c, toMeasurer)
+	}
+
+	// spawn N measurers
+	for i := 0; i < config.MeasurerCount; i++ {
+		go measurer(config, toMeasurer, toPusher)
 	}
 
 	// emit measurements to targets via UDP
