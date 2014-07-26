@@ -14,8 +14,8 @@ import (
 	"github.com/andelf/go-curl"
 	"github.com/nu7hatch/gouuid"
 	"github.com/rcrowley/go-metrics"
-	"github.com/rcrowley/go-metrics/librato"
 	"github.com/rcrowley/go-metrics/influxdb"
+	"github.com/rcrowley/go-metrics/librato"
 	"github.com/vmihailenco/msgpack"
 )
 
@@ -38,7 +38,7 @@ type Config struct {
 	ToPusherTimer      metrics.Timer
 	MeasurementCounter metrics.Counter
 	PushCounter        metrics.Counter
-	CheckPeriod		   time.Duration
+	CheckPeriod        time.Duration
 }
 
 type Check struct {
@@ -231,9 +231,9 @@ func init() {
 	config.LibratoEmail = os.Getenv("LIBRATO_EMAIL")
 	config.LibratoToken = os.Getenv("LIBRATO_TOKEN")
 
-	config.InfluxdbHost     = os.Getenv("INFLUXDB_HOST")
+	config.InfluxdbHost = os.Getenv("INFLUXDB_HOST")
 	config.InfluxdbDatabase = os.Getenv("INFLUXDB_DATABASE")
-	config.InfluxdbUser     = os.Getenv("INFLUXDB_USER")
+	config.InfluxdbUser = os.Getenv("INFLUXDB_USER")
 	config.InfluxdbPassword = os.Getenv("INFLUXDB_PASSWORD")
 
 	if os.Getenv("LOGSTDERR") == "1" {
@@ -265,11 +265,11 @@ func main() {
 			time.Millisecond,      // time unit
 		)
 	}
-	
+
 	if config.InfluxdbHost != "" &&
-	   config.InfluxdbDatabase != "" &&
-	   config.InfluxdbUser != "" &&
-	   config.InfluxdbPassword != "" {
+		config.InfluxdbDatabase != "" &&
+		config.InfluxdbUser != "" &&
+		config.InfluxdbPassword != "" {
 		log.Println("fn=main metrics=influxdb")
 
 		go influxdb.Influxdb(metrics.DefaultRegistry, 10e9, &influxdb.Config{
@@ -279,7 +279,7 @@ func main() {
 			Password: config.InfluxdbPassword,
 		})
 	}
-	
+
 	if config.LogStderr == true {
 		go metrics.Log(metrics.DefaultRegistry, 10e9, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
 	}
