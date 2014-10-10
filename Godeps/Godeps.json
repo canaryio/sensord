@@ -9,6 +9,10 @@
 			"ImportPath": "github.com/andelf/go-curl",
 			"Comment": "compatible-with-go-release.r60-56-g8ff69d4",
 			"Rev": "8ff69d4be61e417cc432604ad991fa5664d38384"
+		},
+		{
+			"ImportPath": "github.com/kr/s3",
+			"Rev": "495b6d5419e7b4257b0fa75fb4552f5fe4fa879a"
 		}
 	]
 }
