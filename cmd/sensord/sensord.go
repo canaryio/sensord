@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -57,11 +56,6 @@ func buffer(d time.Duration, ingress chan *sampler.Sample, egress chan []*sample
 }
 
 func s3Sink(ingress chan []*sampler.Sample) {
-	s3Keys := s3.Keys{
-		AccessKey: os.Getenv("AWS_ACCESS_KEY"),
-		SecretKey: os.Getenv("AWS_SECRET_KEY"),
-	}
-
 	s3BaseURL, err := url.Parse("https://canary-buffers-us-east-1.s3.amazonaws.com")
 	if err != nil {
 		log.Fatal(err)
@@ -79,23 +73,30 @@ func s3Sink(ingress chan []*sampler.Sample) {
 		}
 
 		data := bytes.NewBuffer(b)
-		r, _ := http.NewRequest("PUT", s3URL.String(), data)
-		r.ContentLength = int64(data.Len())
-		r.Header.Set("Date", time.Now().UTC().Format(http.TimeFormat))
-		s3.Sign(r, s3Keys)
+		l := data.Len()
 
-		resp, err := http.DefaultClient.Do(r)
+		resp, err := s3Put(s3URL.String(), data)
 		if err != nil {
 			log.Fatal(err)
 		}
 		resp.Body.Close()
 
-		log.Printf("buffer count=%d size=%d at=put url=%s status_code=%d", len(s), r.ContentLength, s3URL.String(), resp.StatusCode)
+		log.Printf("buffer count=%d size=%d at=put url=%s status_code=%d", len(s), l, s3URL.String(), resp.StatusCode)
 	}
 }
 
-func s3Put(s3BaseURL url.URL, buf io.Reader) {
+func s3Put(s3URL string, buf *bytes.Buffer) (resp *http.Response, err error) {
+	s3Keys := s3.Keys{
+		AccessKey: os.Getenv("AWS_ACCESS_KEY"),
+		SecretKey: os.Getenv("AWS_SECRET_KEY"),
+	}
 
+	r, _ := http.NewRequest("PUT", s3URL, buf)
+	r.ContentLength = int64(buf.Len())
+	r.Header.Set("Date", time.Now().UTC().Format(http.TimeFormat))
+	s3.Sign(r, s3Keys)
+
+	return http.DefaultClient.Do(r)
 }
 
 func main() {
