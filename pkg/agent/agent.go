@@ -31,14 +31,14 @@ func (a *Agent) run() {
 	for {
 		select {
 		case <-sampleTicker.C:
-			log.Printf("ns=agent fn=Run site_id=%s at=sample", a.site.ID)
+			log.Printf("agent site_id=%s at=sample", a.site.ID)
 			s, err := a.sampler.Sample(a.site, a.location)
 			if err != nil {
 				log.Fatal(err)
 			}
 			a.outChan <- s
 		case <-a.stopChan:
-			log.Printf("ns=agent fn=Run site_id=%s at=stop", a.site.ID)
+			log.Printf("agent site_id=%s at=stop", a.site.ID)
 			return
 		}
 	}

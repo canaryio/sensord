@@ -11,14 +11,14 @@ import (
 type Registry struct {
 	sync.Mutex
 	location string
-	outChan  chan *sampler.Sample
+	C        chan *sampler.Sample
 	agents   map[string]*agent.Agent
 }
 
-func New(location string, outChan chan *sampler.Sample) *Registry {
+func New(location string) *Registry {
 	return &Registry{
+		C:        make(chan *sampler.Sample),
 		location: location,
-		outChan:  outChan,
 		agents:   make(map[string]*agent.Agent),
 	}
 }
@@ -28,7 +28,7 @@ func (r *Registry) add(site *manifest.SiteDefinition) {
 	defer r.Unlock()
 
 	if r.agents[site.ID] == nil {
-		agent := agent.New(r.location, site, r.outChan)
+		agent := agent.New(r.location, site, r.C)
 		r.agents[site.ID] = agent
 		agent.Start()
 	}

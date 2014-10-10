@@ -8,7 +8,7 @@ import (
 )
 
 type Sample struct {
-	Site         *manifest.SiteDefinition
+	SiteID       string
 	Location     string
 	T            time.Time
 	ExitStatus   int
@@ -33,7 +33,7 @@ func (s *Sampler) Sample(site *manifest.SiteDefinition, location string) (*Sampl
 	defer s.easy.Reset()
 
 	m := &Sample{}
-	m.Site = site
+	m.SiteID = site.ID
 	m.Location = location
 	m.T = time.Now()
 

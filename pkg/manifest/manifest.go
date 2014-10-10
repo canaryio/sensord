@@ -16,9 +16,9 @@ type SiteDefinition struct {
 }
 
 type ServiceDefinition struct {
-	ID       string `json:"id"`
-	Provider string `json:"provider"`
-	Resource string `json:"resource"`
+	ID       string            `json:"id"`
+	Provider string            `json:"provider"`
+	Config   map[string]string `json:"config"`
 }
 
 type Manifest struct {
@@ -76,5 +76,4 @@ func ContinuouslyGet(url string, ch chan *Manifest) {
 			}
 		}
 	}
-
 }
