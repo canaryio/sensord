@@ -45,8 +45,8 @@ func (s *Sampler) Sample(site *manifest.SiteDefinition, location string) (*Sampl
 	}
 
 	s.easy.Setopt(curl.OPT_WRITEFUNCTION, noOut)
-	s.easy.Setopt(curl.OPT_CONNECTTIMEOUT, 10)
-	s.easy.Setopt(curl.OPT_TIMEOUT, 10)
+	s.easy.Setopt(curl.OPT_CONNECTTIMEOUT, 2)
+	s.easy.Setopt(curl.OPT_TIMEOUT, 2)
 
 	if err := s.easy.Perform(); err != nil {
 		if e, ok := err.(curl.CurlError); ok {
