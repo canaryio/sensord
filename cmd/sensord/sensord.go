@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -89,8 +90,12 @@ func s3Sink(ingress chan []*sampler.Sample) {
 		}
 		resp.Body.Close()
 
-		log.Printf("buffer at=put url=%s status_code=%d", s3URL.String(), resp.StatusCode)
+		log.Printf("buffer count=%d size=%d at=put url=%s status_code=%d", len(s), r.ContentLength, s3URL.String(), resp.StatusCode)
 	}
+}
+
+func s3Put(s3BaseURL url.URL, buf io.Reader) {
+
 }
 
 func main() {
