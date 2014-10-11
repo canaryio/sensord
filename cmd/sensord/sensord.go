@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/bmizerany/aws4"
 	"github.com/canaryio/sensord/pkg/manifest"
 	"github.com/canaryio/sensord/pkg/registry"
 	"github.com/canaryio/sensord/pkg/sampler"
@@ -81,7 +82,17 @@ func s3Sink(ingress chan []*sampler.Sample) {
 		}
 		resp.Body.Close()
 
-		log.Printf("buffer count=%d size=%d at=put url=%s status_code=%d", len(s), l, s3URL.String(), resp.StatusCode)
+		log.Printf("s3sink count=%d size=%d at=put url=%s status_code=%d", len(s), l, s3URL.String(), resp.StatusCode)
+
+		topic := "arn:aws:sns:us-east-1:854436987475:new-buffer"
+		endpoint := "https://sns.us-east-1.amazonaws.com"
+		resp, err = snsPublish(endpoint, topic, "buffer", s3URL.String())
+		if err != nil {
+			log.Fatal(err)
+		}
+		resp.Body.Close()
+
+		log.Printf("s3sink at=publish endpoint=%s topic=%s status_code=%d", endpoint, topic, resp.StatusCode)
 	}
 }
 
@@ -97,6 +108,16 @@ func s3Put(s3URL string, buf *bytes.Buffer) (resp *http.Response, err error) {
 	s3.Sign(r, s3Keys)
 
 	return http.DefaultClient.Do(r)
+}
+
+func snsPublish(endpoint, topic, subject, message string) (resp *http.Response, err error) {
+	v := url.Values{}
+	v.Set("Action", "Publish")
+	v.Set("TopicArn", topic)
+	v.Set("Subject", subject)
+	v.Set("Message", message)
+
+	return aws4.PostForm(endpoint, v)
 }
 
 func main() {
