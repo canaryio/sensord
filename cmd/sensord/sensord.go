@@ -21,18 +21,13 @@ type config struct {
 	manifestURL string
 }
 
-func getEnvWithDefault(name, def string) string {
-	val := os.Getenv(name)
-	if val != "" {
-		return val
-	}
-
-	return def
-}
-
 func getConfig() *config {
 	config := &config{}
-	config.location = getEnvWithDefault("LOCATION", "undefined")
+	config.location = os.Getenv("LOCATION")
+	if config.LOCATION == "" {
+		log.Fatal("LOCATION must be set in ENV")
+	}
+
 	config.manifestURL = os.Getenv("MANIFEST_URL")
 	if config.manifestURL == "" {
 		log.Fatal("MANIFEST_URL must be set in ENV")
