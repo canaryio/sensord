@@ -46,8 +46,8 @@ func (s *Sampler) Sample(name, url, location string) (*Sample, error) {
 	}
 
 	s.easy.Setopt(curl.OPT_WRITEFUNCTION, noOut)
-	s.easy.Setopt(curl.OPT_CONNECTTIMEOUT, 2)
-	s.easy.Setopt(curl.OPT_TIMEOUT, 2)
+	s.easy.Setopt(curl.OPT_CONNECTTIMEOUT, 10)
+	s.easy.Setopt(curl.OPT_TIMEOUT, 10)
 
 	if err := s.easy.Perform(); err != nil {
 		if e, ok := err.(curl.CurlError); ok {
