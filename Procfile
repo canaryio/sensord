@@ -1,1 +1,1 @@
-sensord: sensord
+canary: canary
