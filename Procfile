@@ -1,2 +1,1 @@
 sensord: sensord
-libratod: libratod

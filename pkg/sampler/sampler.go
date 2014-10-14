@@ -4,21 +4,21 @@ import (
 	"time"
 
 	"github.com/andelf/go-curl"
-	"github.com/canaryio/sensord/pkg/manifest"
 )
 
 type Sample struct {
-	SiteID       string
-	Location     string
-	T            time.Time
-	ExitStatus   int
-	HTTPStatus   int
-	TT           float64
-	TTC          float64
-	TTNL         float64
-	TTFB         float64
-	IP           string
-	SizeDownload float64
+	Name              string
+	URL               string
+	Source            string
+	T                 int64
+	ExitStatus        int
+	HTTPStatus        int
+	TotalTime         float64
+	NameLookupTime    float64
+	ConnectTime       float64
+	StartTransferTime float64
+	IP                string
+	SizeDownload      float64
 }
 
 type Sampler struct {
@@ -29,15 +29,16 @@ func New() *Sampler {
 	return &Sampler{easy: curl.EasyInit()}
 }
 
-func (s *Sampler) Sample(site *manifest.SiteDefinition, location string) (*Sample, error) {
+func (s *Sampler) Sample(name, url, location string) (*Sample, error) {
 	defer s.easy.Reset()
 
 	m := &Sample{}
-	m.SiteID = site.ID
-	m.Location = location
-	m.T = time.Now()
+	m.Name = name
+	m.Source = location
+	m.URL = url
+	m.T = time.Now().Unix()
 
-	s.easy.Setopt(curl.OPT_URL, site.URL)
+	s.easy.Setopt(curl.OPT_URL, url)
 
 	// dummy func for curl output
 	noOut := func(buf []byte, userdata interface{}) bool {
@@ -60,16 +61,16 @@ func (s *Sampler) Sample(site *manifest.SiteDefinition, location string) (*Sampl
 	m.HTTPStatus = httpStatus.(int)
 
 	connectTime, _ := s.easy.Getinfo(curl.INFO_CONNECT_TIME)
-	m.TTC = connectTime.(float64)
+	m.ConnectTime = connectTime.(float64)
 
 	namelookupTime, _ := s.easy.Getinfo(curl.INFO_NAMELOOKUP_TIME)
-	m.TTNL = namelookupTime.(float64)
+	m.NameLookupTime = namelookupTime.(float64)
 
 	starttransferTime, _ := s.easy.Getinfo(curl.INFO_STARTTRANSFER_TIME)
-	m.TTFB = starttransferTime.(float64)
+	m.StartTransferTime = starttransferTime.(float64)
 
 	totalTime, _ := s.easy.Getinfo(curl.INFO_TOTAL_TIME)
-	m.TT = totalTime.(float64)
+	m.TotalTime = totalTime.(float64)
 
 	primaryIP, _ := s.easy.Getinfo(curl.INFO_PRIMARY_IP)
 	m.IP = primaryIP.(string)

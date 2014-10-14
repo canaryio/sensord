@@ -8,35 +8,8 @@ import (
 	"time"
 )
 
-type SiteDefinition struct {
-	ID       string   `json:"id"`
-	URL      string   `json:"url"`
-	Metric   string   `json:"metric"`
-	Services []string `json:"services"`
-}
-
-type ServiceDefinition struct {
-	ID       string            `json:"id"`
-	Provider string            `json:"provider"`
-	Config   map[string]string `json:"config"`
-}
-
-type Manifest struct {
-	Sites    []*SiteDefinition    `json:"sites"`
-	Services []*ServiceDefinition `json:"services"`
-}
-
-// SiteMap returns a map of Site IDs and Sites.
-func (m *Manifest) SiteMap() map[string]*SiteDefinition {
-	sm := make(map[string]*SiteDefinition)
-	for _, site := range m.Sites {
-		sm[site.ID] = site
-	}
-	return sm
-}
-
-func Get(url string) (*Manifest, error) {
-	manifest := &Manifest{}
+func Get(url string) (map[string]*string, error) {
+	manifest := make(map[string]*string)
 
 	res, err := http.Get(url)
 	if err != nil {
@@ -49,7 +22,7 @@ func Get(url string) (*Manifest, error) {
 		return nil, err
 	}
 
-	err = json.Unmarshal(body, manifest)
+	err = json.Unmarshal(body, &manifest)
 	if err != nil {
 		return nil, err
 	}
@@ -57,8 +30,8 @@ func Get(url string) (*Manifest, error) {
 	return manifest, nil
 }
 
-func ContinuouslyGet(url string, ch chan *Manifest) {
-	m, err := Get("http://mvp.canary.io/manifests/v2")
+func ContinuouslyGet(url string, ch chan map[string]*string) {
+	m, err := Get(url)
 	if err != nil {
 		log.Print(err)
 	}
@@ -68,7 +41,7 @@ func ContinuouslyGet(url string, ch chan *Manifest) {
 	for {
 		select {
 		case <-ticker.C:
-			m, err := Get("http://mvp.canary.io/manifests/v2")
+			m, err := Get(url)
 			if err != nil {
 				log.Print(err)
 			} else {
